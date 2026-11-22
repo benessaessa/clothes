@@ -26,6 +26,8 @@
   var toastTimer;
   var nf = new Intl.NumberFormat('ar-EG');
   var firebaseDb = null;
+  var firebaseStorage = null;
+  var firebaseAuth = null;
   var firebaseReady = false;
 
   if (window.firebase) {
@@ -39,6 +41,8 @@
     };
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     firebaseDb = firebase.firestore();
+    firebaseStorage = firebase.storage();
+    firebaseAuth = firebase.auth();
     firebaseReady = true;
   }
 
@@ -377,6 +381,21 @@
     } else if (target.dataset && target.dataset.imageId) {
       var imageItem = byId(+target.dataset.imageId);
       if (!target.files.length) return;
+      if (firebaseReady) {
+        var existingRef = firebaseStorage.ref('materials/' + Date.now() + '-' + target.files[0].name);
+        existingRef.put(target.files[0]).then(function (snapshot) {
+          return snapshot.ref.getDownloadURL();
+        }).then(function (url) {
+          imageItem.image = url;
+          saveMaterials();
+          renderGrid();
+          renderStock();
+          toast('تم تحديث الصورة');
+        }).catch(function () {
+          toast('تعذر رفع الصورة إلى Firebase');
+        });
+        return;
+      }
       var reader = new FileReader();
       reader.onload = function () {
         imageItem.image = reader.result;
@@ -411,6 +430,17 @@
       toast('تمت إضافة الخامة');
     };
     if (file) {
+      if (firebaseReady) {
+        var newRef = firebaseStorage.ref('materials/' + Date.now() + '-' + file.name);
+        newRef.put(file).then(function (snapshot) {
+          return snapshot.ref.getDownloadURL();
+        }).then(function (url) {
+          addItem(url);
+        }).catch(function () {
+          toast('تعذر رفع الصورة إلى Firebase');
+        });
+        return;
+      }
       var reader = new FileReader();
       reader.onload = function () { addItem(reader.result); };
       reader.readAsDataURL(file);
@@ -422,6 +452,7 @@
   $('logoutBtn').addEventListener('click', function () {
     if (isStaticSite()) {
       sessionStorage.removeItem(SESSION_KEY);
+      if (firebaseAuth) firebaseAuth.signOut();
       window.location.href = 'index.html';
       return;
     }
@@ -435,7 +466,20 @@
   renderGrid();
   renderCartbar();
   renderStock();
-  if (isStaticSite()) {
+  if (firebaseAuth) {
+    firebaseAuth.onAuthStateChanged(function (user) {
+      var authenticated = !!user;
+      $('adminControls').hidden = !authenticated;
+      if (authenticated) {
+        sessionStorage.setItem(SESSION_KEY, 'authenticated');
+        setMode('admin');
+        setTab('stock');
+      } else {
+        sessionStorage.removeItem(SESSION_KEY);
+        setMode('client');
+      }
+    });
+  } else if (isStaticSite()) {
     var authenticated = isAdminAuthenticated();
     $('adminControls').hidden = !authenticated;
     if (authenticated) {

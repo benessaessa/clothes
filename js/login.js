@@ -40,21 +40,11 @@
           window.location.href = 'index.html';
           return;
         } catch (error) {
-          if (username === 'admin' && password === 'admin123') {
-            sessionStorage.setItem('clothes-admin-session-v1', 'authenticated');
-            window.location.href = 'index.html';
-            return;
-          }
           $('loginError').textContent = 'بيانات الدخول غير صحيحة';
           return;
         }
       }
-      if (username === 'admin' && password === 'admin123') {
-        sessionStorage.setItem('clothes-admin-session-v1', 'authenticated');
-        window.location.href = 'index.html';
-      } else {
-        $('loginError').textContent = 'بيانات الدخول غير صحيحة';
-      }
+      $('loginError').textContent = 'تعذر الاتصال بمصادقة Firebase';
       return;
     }
     try {
