@@ -281,12 +281,12 @@
   }
   function setMode(value) {
     if (value === 'admin') {
-      if (isStaticSite()) {
+      if (!(firebaseAuth && firebaseAuth.currentUser) && isStaticSite()) {
         if (!isAdminAuthenticated()) {
           window.location.href = 'login.html';
           return;
         }
-      } else {
+      } else if (!firebaseAuth && !isStaticSite()) {
         fetch(apiUrl('/api/session'), { cache: 'no-store', credentials: 'include' })
           .then(function (response) { return response.json(); })
           .then(function (session) {
