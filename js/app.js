@@ -440,7 +440,7 @@
   renderStock();
   if (firebaseAuth) {
     firebaseAuth.onAuthStateChanged(function (user) {
-      var authenticated = !!user;
+      var authenticated = !!user || isAdminAuthenticated();
       $('adminControls').hidden = !authenticated;
       if (authenticated) {
         sessionStorage.setItem(SESSION_KEY, 'authenticated');
