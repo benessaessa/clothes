@@ -2,7 +2,9 @@
   function $(id) { return document.getElementById(id); }
   function isStaticSite() {
     return window.location.protocol === 'file:' ||
-      window.location.hostname.endsWith('github.io');
+      window.location.hostname.endsWith('github.io') ||
+      window.location.hostname.endsWith('web.app') ||
+      window.location.hostname.endsWith('firebaseapp.com');
   }
   function apiUrl(path) {
     if (window.location.protocol === 'file:' || window.location.hostname === '') {

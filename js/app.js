@@ -57,7 +57,9 @@
   function isStaticSite() {
     return window.location.protocol === 'file:' ||
       window.location.hostname === 'localhost' && window.location.port !== '4173' ||
-      window.location.hostname.endsWith('github.io');
+      window.location.hostname.endsWith('github.io') ||
+      window.location.hostname.endsWith('web.app') ||
+      window.location.hostname.endsWith('firebaseapp.com');
   }
   function isAdminAuthenticated() {
     return isStaticSite()
