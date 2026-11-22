@@ -165,6 +165,15 @@ main { padding-block: 16px 110px; }
 
 .tabs { display: flex; margin-bottom: 14px; }
 .panel { display: grid; gap: 12px; }
+.name-status {
+  display: block;
+  min-height: 20px;
+  margin-top: 4px;
+  font-size: 12px;
+}
+.name-status.available { color: var(--good); }
+.name-status.duplicate { color: var(--bad); }
+#nf-name[aria-invalid="true"] { border-color: var(--bad); }
 .order, .srow, .addbox { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: grid; gap: 10px; min-width: 0; }
 .order header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .order header > div { display: grid; min-width: 0; }

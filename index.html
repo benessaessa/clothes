@@ -48,7 +48,11 @@
         <form class="addbox" id="addForm">
           <h3>إضافة خامة جديدة</h3>
           <div class="formgrid">
-            <label class="full">اسم الخامة<input id="nf-name" required placeholder="مثال: كوريشه"></label>
+            <label class="full">اسم الخامة
+              <input id="nf-name" list="materialNameSuggestions" required placeholder="مثال: كوريشه" autocomplete="off">
+              <datalist id="materialNameSuggestions"></datalist>
+              <span id="nf-name-status" class="name-status" aria-live="polite"></span>
+            </label>
             <label>سعر البيع للمتر<input id="nf-price" type="number" inputmode="decimal" min="1" required></label>
             <label>المتاح بالمتر<input id="nf-stock" type="number" inputmode="numeric" min="0" required></label>
             <label class="full">رابط صورة الخامة

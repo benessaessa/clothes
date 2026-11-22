@@ -76,6 +76,50 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char];
     });
   }
+  function normalizeMaterialName(value) {
+    return String(value || '')
+      .trim()
+      .replace(/[\u064B-\u065F\u0670]/g, '')
+      .replace(/[\u0622\u0623\u0625]/g, '\u0627')
+      .replace(/\u0629/g, '\u0647')
+      .replace(/\u0649/g, '\u064A')
+      .replace(/\u0640/g, '')
+      .replace(/\s+/g, ' ')
+      .toLocaleLowerCase();
+  }
+  function findMaterialByName(name) {
+    var normalizedName = normalizeMaterialName(name);
+    if (!normalizedName) return null;
+    return materials.find(function (item) {
+      return normalizeMaterialName(item.name) === normalizedName;
+    }) || null;
+  }
+  function updateMaterialNameCheck() {
+    var input = $('nf-name');
+    var status = $('nf-name-status');
+    var datalist = $('materialNameSuggestions');
+    var query = normalizeMaterialName(input.value);
+    var exact = findMaterialByName(input.value);
+    datalist.innerHTML = materials
+      .filter(function (item) {
+        return !query || normalizeMaterialName(item.name).indexOf(query) >= 0;
+      })
+      .map(function (item) { return '<option value="' + esc(item.name) + '"></option>'; })
+      .join('');
+    if (exact) {
+      status.textContent = 'هذه الخامة موجودة بالفعل';
+      status.className = 'name-status duplicate';
+      input.setAttribute('aria-invalid', 'true');
+    } else if (query) {
+      status.textContent = 'اسم متاح للإضافة';
+      status.className = 'name-status available';
+      input.setAttribute('aria-invalid', 'false');
+    } else {
+      status.textContent = '';
+      status.className = 'name-status';
+      input.removeAttribute('aria-invalid');
+    }
+  }
   async function loadMaterials() {
     if (firebaseReady) {
       firebaseDb.collection('materials').orderBy('id').onSnapshot(function (snapshot) {
@@ -91,6 +135,7 @@
           nextId = materials.reduce(function (max, item) { return Math.max(max, Number(item.id)); }, 0) + 1;
           renderGrid();
           renderStock();
+          updateMaterialNameCheck();
         }
       }, function (error) {
         toast('تعذر تحميل الخامات من Firebase');
@@ -105,6 +150,7 @@
           nextId = materials.reduce(function (max, item) { return Math.max(max, item.id); }, 0) + 1;
           renderGrid();
           renderStock();
+          updateMaterialNameCheck();
         }
       } catch (error) {
         toast('تعذر تحميل الخامات المحفوظة');
@@ -180,8 +226,9 @@
     return '<span class="pill good">متاح</span>';
   }
   function renderGrid() {
+    var normalizedSearch = normalizeMaterialName(search);
     var list = materials.filter(function (item) {
-      return !search || item.name.indexOf(search) >= 0;
+      return !normalizedSearch || normalizeMaterialName(item.name).indexOf(normalizedSearch) >= 0;
     });
     $('grid').innerHTML = list.length ? list.map(function (item) {
       return '<button type="button" class="card" data-act="open" data-id="' + item.id + '"' + (item.stock <= 0 ? ' disabled' : '') + '>' +
@@ -474,6 +521,8 @@
     if (event.target.id === 'search') {
       search = event.target.value.trim();
       renderGrid();
+    } else if (event.target.id === 'nf-name') {
+      updateMaterialNameCheck();
     } else if (event.target.id === 'orderNameFilter') {
       orderNameFilter = event.target.value.trim();
       renderOrders();
@@ -585,6 +634,12 @@
       toast('اكتب الاسم والسعر والكمية');
       return;
     }
+    if (findMaterialByName(name)) {
+      updateMaterialNameCheck();
+      $('nf-name').focus();
+      toast('لا يمكن إضافة خامة بنفس الاسم');
+      return;
+    }
     var imageUrl = $('nf-image').value.trim();
     if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
       toast('أدخل رابطًا يبدأ بـ https://');
@@ -597,6 +652,7 @@
       renderGrid();
       renderStock();
       renderChips();
+      updateMaterialNameCheck();
       toast('تمت إضافة الخامة');
     };
     addItem(imageUrl);
