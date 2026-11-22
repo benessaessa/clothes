@@ -259,10 +259,11 @@
       }).join('') + '</ul>' +
       '<div class="sumbox"><div><span>الإجمالي</span><b>' + egp(totals.total) + '</b></div></div>' +
       '<form id="orderForm" class="order-form">' +
-      '<label>اسم العميل<input id="orderName" type="text" autocomplete="name" required placeholder="اكتب اسمك"></label>' +
-      '<label>رقم الهاتف<input id="orderPhone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" required placeholder="01xxxxxxxxx"></label>' +
-      '<label>البريد الإلكتروني<input id="orderEmail" type="email" autocomplete="email" required placeholder="name@example.com"></label>' +
-      '<button type="submit" class="btn block">أكد الطلب</button>' +
+      '<div class="order-form-head"><h3>بيانات التأكيد</h3><span>بياناتك المطلوبة لإتمام الطلب</span></div>' +
+      '<label><span>اسم العميل</span><input id="orderName" type="text" autocomplete="name" required minlength="2" placeholder="اكتب اسمك بالكامل"></label>' +
+      '<label><span>رقم الهاتف</span><input id="orderPhone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" required minlength="6" maxlength="20" placeholder="01xxxxxxxxx"></label>' +
+      '<label><span>البريد الإلكتروني</span><input id="orderEmail" type="email" autocomplete="email" required placeholder="name@example.com"></label>' +
+      '<button type="submit" class="btn block">تأكيد وإرسال الطلب</button>' +
       '</form>';
   }
   function renderOrders() {
