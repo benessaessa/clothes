@@ -259,6 +259,7 @@
       }).join('') + '</ul>' +
       '<div class="sumbox"><div><span>الإجمالي</span><b>' + egp(totals.total) + '</b></div></div>' +
       '<form id="orderForm" class="order-form">' +
+      '<label>اسم العميل<input id="orderName" type="text" autocomplete="name" required placeholder="اكتب اسمك"></label>' +
       '<label>رقم الهاتف<input id="orderPhone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" required placeholder="01xxxxxxxxx"></label>' +
       '<label>البريد الإلكتروني<input id="orderEmail" type="email" autocomplete="email" required placeholder="name@example.com"></label>' +
       '<button type="submit" class="btn block">أكد الطلب</button>' +
@@ -277,7 +278,8 @@
       return '<article class="order">' +
         '<header><div><b>طلب #' + esc(order.id || '') + '</b><span class="sub">' + esc(created) + '</span></div>' +
         '<span class="pill ' + (order.status === 'new' ? 'info' : 'good') + '">' + (order.status === 'new' ? 'طلب جديد' : 'تمت المعالجة') + '</span></header>' +
-        '<div class="sumbox"><div><span>الهاتف</span><b dir="ltr">' + esc(order.phone || '') + '</b></div>' +
+        '<div class="sumbox"><div><span>الاسم</span><b>' + esc(order.customerName || '') + '</b></div>' +
+        '<div><span>الهاتف</span><b dir="ltr">' + esc(order.phone || '') + '</b></div>' +
         '<div><span>البريد</span><b dir="ltr">' + esc(order.email || '') + '</b></div></div>' +
         '<ul class="lines">' + items.map(function (item) {
           return '<li><span>' + esc(item.name) + ' · ' + fmt(item.quantity) + ' متر</span><b>' + egp(item.price * item.quantity) + '</b></li>';
@@ -427,11 +429,12 @@
   document.addEventListener('submit', async function (event) {
     if (event.target.id !== 'orderForm') return;
     event.preventDefault();
+    var name = $('orderName').value.trim();
     var phone = $('orderPhone').value.trim();
     var email = $('orderEmail').value.trim();
     var ids = Object.keys(cart);
-    if (!phone || !email || !ids.length) {
-      toast('أدخل رقم الهاتف والبريد الإلكتروني');
+    if (!name || !phone || !email || !ids.length) {
+      toast('أدخل الاسم ورقم الهاتف والبريد الإلكتروني');
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -446,6 +449,7 @@
     try {
       if (firebaseReady) {
         await firebaseDb.collection('orders').add({
+          customerName: name,
           phone: phone,
           email: email,
           items: items,
