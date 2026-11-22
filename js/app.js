@@ -26,7 +26,6 @@
   var toastTimer;
   var nf = new Intl.NumberFormat('ar-EG');
   var firebaseDb = null;
-  var firebaseStorage = null;
   var firebaseAuth = null;
   var firebaseReady = false;
 
@@ -41,7 +40,6 @@
     };
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     firebaseDb = firebase.firestore();
-    firebaseStorage = firebase.storage();
     firebaseAuth = firebase.auth();
     firebaseReady = true;
   }
@@ -268,7 +266,7 @@
         '<div class="fields">' +
         '<label>السعر للمتر<input type="number" inputmode="decimal" min="0" data-f="price" data-id="' + item.id + '" value="' + item.price + '"></label>' +
         '<label>المتاح بالمتر<input type="number" inputmode="numeric" min="0" data-f="stock" data-id="' + item.id + '" value="' + item.stock + '"></label>' +
-        '<label>تغيير الصورة<input type="file" accept="image/*" data-image-id="' + item.id + '"></label>' +
+        '<label>رابط الصورة<input type="url" inputmode="url" dir="ltr" data-image-id="' + item.id + '" value="' + esc(item.image || '') + '" placeholder="https://example.com/image.jpg"></label>' +
         '</div><button type="button" class="btn ghost delete-btn" data-act="delete" data-id="' + item.id + '">حذف الخامة</button>' +
         '</article>';
     }).join('');
@@ -380,31 +378,16 @@
       renderGrid();
     } else if (target.dataset && target.dataset.imageId) {
       var imageItem = byId(+target.dataset.imageId);
-      if (!target.files.length) return;
-      if (firebaseReady) {
-        var existingRef = firebaseStorage.ref('materials/' + Date.now() + '-' + target.files[0].name);
-        existingRef.put(target.files[0]).then(function (snapshot) {
-          return snapshot.ref.getDownloadURL();
-        }).then(function (url) {
-          imageItem.image = url;
-          saveMaterials();
-          renderGrid();
-          renderStock();
-          toast('تم تحديث الصورة');
-        }).catch(function () {
-          toast('تعذر رفع الصورة إلى Firebase');
-        });
+      var imageUrl = target.value.trim();
+      if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
+        toast('أدخل رابطًا يبدأ بـ https://');
         return;
       }
-      var reader = new FileReader();
-      reader.onload = function () {
-        imageItem.image = reader.result;
-        saveMaterials();
-        renderGrid();
-        renderStock();
-        toast('تم تحديث الصورة');
-      };
-      reader.readAsDataURL(target.files[0]);
+      imageItem.image = imageUrl;
+      saveMaterials();
+      renderGrid();
+      renderStock();
+      toast(imageUrl ? 'تم تحديث رابط الصورة' : 'تمت إزالة الصورة');
     }
   });
   document.addEventListener('keydown', function (event) {
@@ -419,7 +402,11 @@
       toast('اكتب الاسم والسعر والكمية');
       return;
     }
-    var file = $('nf-image').files[0];
+    var imageUrl = $('nf-image').value.trim();
+    if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
+      toast('أدخل رابطًا يبدأ بـ https://');
+      return;
+    }
     var addItem = function (image) {
       materials.push({ id: nextId++, name: name, price: price, stock: stock, image: image || '' });
       saveMaterials();
@@ -429,24 +416,7 @@
       renderChips();
       toast('تمت إضافة الخامة');
     };
-    if (file) {
-      if (firebaseReady) {
-        var newRef = firebaseStorage.ref('materials/' + Date.now() + '-' + file.name);
-        newRef.put(file).then(function (snapshot) {
-          return snapshot.ref.getDownloadURL();
-        }).then(function (url) {
-          addItem(url);
-        }).catch(function () {
-          toast('تعذر رفع الصورة إلى Firebase');
-        });
-        return;
-      }
-      var reader = new FileReader();
-      reader.onload = function () { addItem(reader.result); };
-      reader.readAsDataURL(file);
-    } else {
-      addItem('');
-    }
+    addItem(imageUrl);
   });
 
   $('logoutBtn').addEventListener('click', function () {

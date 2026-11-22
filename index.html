@@ -51,7 +51,9 @@
             <label class="full">اسم الخامة<input id="nf-name" required placeholder="مثال: كوريشه"></label>
             <label>سعر البيع للمتر<input id="nf-price" type="number" inputmode="decimal" min="1" required></label>
             <label>المتاح بالمتر<input id="nf-stock" type="number" inputmode="numeric" min="0" required></label>
-            <label class="full">صورة الخامة<input id="nf-image" type="file" accept="image/*"></label>
+            <label class="full">رابط صورة الخامة
+              <input id="nf-image" type="url" inputmode="url" dir="ltr" placeholder="https://example.com/image.jpg">
+            </label>
           </div>
           <button class="btn block" type="submit">أضف الخامة</button>
         </form>
@@ -77,7 +79,6 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="js/app.js"></script>
 </body>
