@@ -275,12 +275,6 @@
       rejected: 'مرفوض',
       completed: 'مكتمل'
     };
-    var statusClasses = {
-      new: 'info',
-      in_progress: 'warn',
-      rejected: 'bad',
-      completed: 'good'
-    };
     var filteredOrders = orders.filter(function (order) {
       var matchesName = !orderNameFilter ||
         String(order.customerName || '').toLocaleLowerCase().indexOf(orderNameFilter.toLocaleLowerCase()) >= 0;
@@ -296,8 +290,12 @@
         ? order.createdAt.toDate().toLocaleString('ar-EG')
         : 'الآن';
       return '<article class="order">' +
-        '<header><div><b>طلب #' + esc(order.id || '') + '</b><span class="sub">' + esc(created) + '</span></div>' +
-        '<span class="pill ' + statusClasses[status] + '">' + statusNames[status] + '</span></header>' +
+        '<header class="order-header"><div><b>طلب #' + esc(order.id || '') + '</b><span class="sub">' + esc(created) + '</span></div>' +
+        '<label class="order-status"><span>حالة الطلب</span><span class="status-control status-' + status + '">' +
+        '<select data-order-status data-id="' + esc(order.id) + '" aria-label="حالة الطلب">' +
+        Object.keys(statusNames).map(function (value) {
+          return '<option value="' + value + '"' + (value === status ? ' selected' : '') + '>' + statusNames[value] + '</option>';
+        }).join('') + '</select></span></label></header>' +
         '<div class="sumbox"><div><span>الاسم</span><b>' + esc(order.customerName || '') + '</b></div>' +
         '<div><span>الهاتف</span><b dir="ltr">' + esc(order.phone || '') + '</b></div>' +
         '<div><span>البريد</span><b dir="ltr">' + esc(order.email || '') + '</b></div></div>' +
@@ -305,13 +303,11 @@
           return '<li><span>' + esc(item.name) + ' · ' + fmt(item.quantity) + ' متر</span><b>' + egp(item.price * item.quantity) + '</b></li>';
         }).join('') + '</ul>' +
         '<div class="sumbox"><div><span>الإجمالي</span><b>' + egp(order.total || 0) + '</b></div></div>' +
-        '<label class="order-status">حالة الطلب<select data-order-status data-id="' + esc(order.id) + '">' +
-        Object.keys(statusNames).map(function (value) {
-          return '<option value="' + value + '"' + (value === status ? ' selected' : '') + '>' + statusNames[value] + '</option>';
-        }).join('') + '</select></label>' +
         '</article>';
     }).join('');
     $('ordersPanel').innerHTML =
+      '<div class="order-toolbar"><div><h2>طلبات العملاء</h2><span class="sub">' + fmt(orders.length) + ' طلب</span></div>' +
+      '<button type="button" class="btn export-btn" data-act="export-orders"' + (orders.length ? '' : ' disabled') + '>تصدير كل الطلبات</button></div>' +
       '<div class="order-filters">' +
       '<label>البحث باسم العميل<input id="orderNameFilter" type="search" value="' + esc(orderNameFilter) + '" placeholder="اكتب اسم العميل"></label>' +
       '<label>تصفية حسب الحالة<select id="orderStatusFilter">' +
@@ -320,6 +316,54 @@
         return '<option value="' + value + '"' + (orderStatusFilter === value ? ' selected' : '') + '>' + statusNames[value] + '</option>';
       }).join('') + '</select></label></div>' +
       (filteredOrders.length ? orderMarkup : '<p class="empty">' + (orders.length ? 'لا توجد طلبات مطابقة للتصفية.' : 'لا توجد طلبات جديدة.') + '</p>');
+  }
+  function exportOrders() {
+    var statusNames = {
+      new: 'جديد',
+      in_progress: 'قيد التنفيذ',
+      rejected: 'مرفوض',
+      completed: 'مكتمل'
+    };
+    var quote = function (value) {
+      var text = String(value == null ? '' : value);
+      if (/^[\t\r ]*[=+\-@]/.test(text)) text = "'" + text;
+      return '"' + text.replace(/"/g, '""') + '"';
+    };
+    var rows = [[
+      'رقم الطلب', 'التاريخ', 'اسم العميل', 'الهاتف', 'البريد الإلكتروني',
+      'المنتجات', 'الإجمالي', 'الحالة'
+    ]];
+    orders.forEach(function (order) {
+      var created = order.createdAt && order.createdAt.toDate
+        ? order.createdAt.toDate().toLocaleString('ar-EG')
+        : '';
+      var items = (Array.isArray(order.items) ? order.items : []).map(function (item) {
+        return item.name + ' (' + item.quantity + ' م)';
+      }).join('، ');
+      rows.push([
+        order.id,
+        created,
+        order.customerName,
+        order.phone,
+        order.email,
+        items,
+        order.total,
+        statusNames[order.status || 'new'] || statusNames.new
+      ]);
+    });
+    var csv = '\uFEFF' + rows.map(function (row) {
+      return row.map(quote).join(',');
+    }).join('\r\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'customer-orders-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    toast('تم تصدير ' + fmt(orders.length) + ' طلب');
   }
   async function loadOrders() {
     if (!firebaseReady) return;
@@ -396,6 +440,7 @@
     var act = element.dataset.act;
     if (act === 'mode') setMode(element.dataset.mode);
     else if (act === 'tab') setTab(element.dataset.tab);
+    else if (act === 'export-orders') exportOrders();
     else if (act === 'open') openDetail(+element.dataset.id);
     else if (act === 'qminus' || act === 'qplus') {
       detailQty = clampQty(detailQty + (act === 'qplus' ? 1 : -1));
@@ -569,7 +614,7 @@
     });
   });
 
-  setTab('stock');
+  setTab('orders');
   renderChips();
   renderGrid();
   renderCartbar();
@@ -581,7 +626,7 @@
       if (authenticated) {
         sessionStorage.setItem(SESSION_KEY, 'authenticated');
         setMode('admin');
-        setTab('stock');
+        setTab('orders');
         loadOrders();
       } else {
         sessionStorage.removeItem(SESSION_KEY);
@@ -593,7 +638,7 @@
     $('adminControls').hidden = !authenticated;
     if (authenticated) {
       setMode('admin');
-      setTab('stock');
+      setTab('orders');
       loadOrders();
     } else {
       setMode('client');
@@ -605,7 +650,7 @@
         $('adminControls').hidden = !session.authenticated;
         if (session.authenticated) {
           setMode('admin');
-          setTab('stock');
+          setTab('orders');
         } else {
           setMode('client');
         }
