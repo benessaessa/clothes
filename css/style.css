@@ -186,6 +186,23 @@ details .lines { margin-top: 8px; font-size: 13px; }
   padding-inline: 14px;
   margin-top: 2px;
 }
+.order-form {
+  display: grid;
+  gap: 10px;
+}
+.order-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.order-form input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
 .login-page {
   min-height: 100vh;
   display: grid;

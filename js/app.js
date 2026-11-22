@@ -20,6 +20,7 @@
   var tab = 'orders';
   var search = '';
   var cart = {};
+  var orders = [];
   var detailId = null;
   var detailQty = 1;
   var sheetKind = null;
@@ -257,7 +258,47 @@
           '<div style="text-align:end"><b>' + egp(item.price * cart[id]) + '</b><br><button type="button" class="x" data-act="rm" data-id="' + id + '">شيل</button></div></li>';
       }).join('') + '</ul>' +
       '<div class="sumbox"><div><span>الإجمالي</span><b>' + egp(totals.total) + '</b></div></div>' +
-      '<button type="button" class="btn block" data-act="place">أكد الطلب</button>';
+      '<form id="orderForm" class="order-form">' +
+      '<label>رقم الهاتف<input id="orderPhone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" required placeholder="01xxxxxxxxx"></label>' +
+      '<label>البريد الإلكتروني<input id="orderEmail" type="email" autocomplete="email" required placeholder="name@example.com"></label>' +
+      '<button type="submit" class="btn block">أكد الطلب</button>' +
+      '</form>';
+  }
+  function renderOrders() {
+    if (!orders.length) {
+      $('ordersPanel').innerHTML = '<p class="empty">لا توجد طلبات جديدة.</p>';
+      return;
+    }
+    $('ordersPanel').innerHTML = orders.map(function (order) {
+      var items = Array.isArray(order.items) ? order.items : [];
+      var created = order.createdAt && order.createdAt.toDate
+        ? order.createdAt.toDate().toLocaleString('ar-EG')
+        : 'الآن';
+      return '<article class="order">' +
+        '<header><div><b>طلب #' + esc(order.id || '') + '</b><span class="sub">' + esc(created) + '</span></div>' +
+        '<span class="pill ' + (order.status === 'new' ? 'info' : 'good') + '">' + (order.status === 'new' ? 'طلب جديد' : 'تمت المعالجة') + '</span></header>' +
+        '<div class="sumbox"><div><span>الهاتف</span><b dir="ltr">' + esc(order.phone || '') + '</b></div>' +
+        '<div><span>البريد</span><b dir="ltr">' + esc(order.email || '') + '</b></div></div>' +
+        '<ul class="lines">' + items.map(function (item) {
+          return '<li><span>' + esc(item.name) + ' · ' + fmt(item.quantity) + ' متر</span><b>' + egp(item.price * item.quantity) + '</b></li>';
+        }).join('') + '</ul>' +
+        '<div class="sumbox"><div><span>الإجمالي</span><b>' + egp(order.total || 0) + '</b></div></div>' +
+        '</article>';
+    }).join('');
+  }
+  async function loadOrders() {
+    if (!firebaseReady) return;
+    firebaseDb.collection('orders').orderBy('createdAt', 'desc').onSnapshot(function (snapshot) {
+      orders = [];
+      snapshot.forEach(function (document) {
+        var order = document.data();
+        order.id = document.id;
+        orders.push(order);
+      });
+      renderOrders();
+    }, function () {
+      $('ordersPanel').innerHTML = '<p class="empty">تعذر تحميل الطلبات.</p>';
+    });
   }
   function renderStock() {
     $('stockList').innerHTML = materials.map(function (item) {
@@ -338,18 +379,6 @@
       delete cart[element.dataset.id];
       renderCartbar();
       renderCheckout();
-    } else if (act === 'place') {
-      Object.keys(cart).forEach(function (id) {
-        var item = byId(+id);
-        item.stock = Math.max(0, item.stock - cart[id]);
-      });
-      saveMaterials();
-      cart = {};
-      closeSheet();
-      renderGrid();
-      renderStock();
-      renderCartbar();
-      toast('تم تأكيد الطلب بنجاح');
     } else if (act === 'delete') {
       var item = byId(+element.dataset.id);
       if (item && confirm('هل تريد حذف ' + item.name + '؟')) {
@@ -394,6 +423,47 @@
   });
   document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape' && sheetKind) closeSheet();
+  });
+  document.addEventListener('submit', async function (event) {
+    if (event.target.id !== 'orderForm') return;
+    event.preventDefault();
+    var phone = $('orderPhone').value.trim();
+    var email = $('orderEmail').value.trim();
+    var ids = Object.keys(cart);
+    if (!phone || !email || !ids.length) {
+      toast('أدخل رقم الهاتف والبريد الإلكتروني');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast('البريد الإلكتروني غير صحيح');
+      return;
+    }
+    var items = ids.map(function (id) {
+      var item = byId(+id);
+      return { materialId: item.id, name: item.name, quantity: cart[id], price: item.price };
+    });
+    var total = cartTotal().total;
+    try {
+      if (firebaseReady) {
+        await firebaseDb.collection('orders').add({
+          phone: phone,
+          email: email,
+          items: items,
+          total: total,
+          status: 'new',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } else {
+        throw new Error('Firebase unavailable');
+      }
+      cart = {};
+      closeSheet();
+      renderCartbar();
+      renderGrid();
+      toast('تم تأكيد الطلب بنجاح');
+    } catch (error) {
+      toast('تعذر إرسال الطلب');
+    }
   });
   $('addForm').addEventListener('submit', function (event) {
     event.preventDefault();
@@ -446,6 +516,7 @@
         sessionStorage.setItem(SESSION_KEY, 'authenticated');
         setMode('admin');
         setTab('stock');
+        loadOrders();
       } else {
         sessionStorage.removeItem(SESSION_KEY);
         setMode('client');
@@ -457,6 +528,7 @@
     if (authenticated) {
       setMode('admin');
       setTab('stock');
+      loadOrders();
     } else {
       setMode('client');
     }
