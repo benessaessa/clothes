@@ -338,10 +338,52 @@ main { padding-block: 16px 110px; }
   outline: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
   border-color: var(--accent);
 }
-.order-status {
+.orders-grid {
   display: grid;
-  justify-items: end;
-  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+.orders-grid .order {
+  height: 100%;
+  box-shadow: 0 8px 20px rgba(20, 28, 62, .07);
+}
+.order-details {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.order-details div {
+  min-width: 0;
+  display: grid;
+  justify-content: start;
+  gap: 2px;
+}
+.order-details b,
+.order-details span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.order-header {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.order-header > div {
+  min-width: 0;
+  white-space: nowrap;
+}
+.order-header > div .sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.order-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
   flex: none;
   color: var(--muted);
   font-size: 11px;
@@ -538,9 +580,25 @@ details .lines { margin-top: 8px; font-size: 13px; }
   .sheet { animation: up .22s ease-out; }
   @keyframes up { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
 }
+@media (max-width: 900px) {
+  .stock-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .orders-grid { grid-template-columns: 1fr; }
+  .order-details { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 @media (max-width: 520px) {
   .order-filters { grid-template-columns: 1fr; }
-  .order header { align-items: flex-start; }
+  .orders-grid { grid-template-columns: 1fr; }
+  .order-header { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  .order-status { gap: 5px; }
+  .order-status > span:first-child { display: none; }
+  .status-control select { min-width: 118px; min-height: 36px; }
+  .order-details { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .order-toolbar { align-items: flex-start; }
   .export-btn { padding-inline: 12px; }
+  .stock-toolbar { grid-template-columns: 1fr auto; gap: 8px; }
+  .stock-grid { grid-template-columns: 1fr; }
+  .stock-grid .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stock-grid .fields label:last-child { grid-column: 1 / -1; }
+  .top .inner { flex-wrap: wrap; }
+  .tabs { overflow-x: auto; }
 }

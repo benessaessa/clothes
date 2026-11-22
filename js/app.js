@@ -345,7 +345,7 @@
         Object.keys(statusNames).map(function (value) {
           return '<option value="' + value + '"' + (value === status ? ' selected' : '') + '>' + statusNames[value] + '</option>';
         }).join('') + '</select></span></label></header>' +
-        '<div class="sumbox"><div><span>الاسم</span><b>' + esc(order.customerName || '') + '</b></div>' +
+        '<div class="sumbox order-details"><div><span>الاسم</span><b>' + esc(order.customerName || '') + '</b></div>' +
         '<div><span>الهاتف</span><b dir="ltr">' + esc(order.phone || '') + '</b></div>' +
         '<div><span>البريد</span><b dir="ltr">' + esc(order.email || '') + '</b></div></div>' +
         '<ul class="lines">' + items.map(function (item) {
@@ -364,7 +364,7 @@
       Object.keys(statusNames).map(function (value) {
         return '<option value="' + value + '"' + (orderStatusFilter === value ? ' selected' : '') + '>' + statusNames[value] + '</option>';
       }).join('') + '</select></label></div>' +
-      (filteredOrders.length ? orderMarkup : '<p class="empty">' + (orders.length ? 'لا توجد طلبات مطابقة للتصفية.' : 'لا توجد طلبات جديدة.') + '</p>');
+      (filteredOrders.length ? '<div class="orders-grid">' + orderMarkup + '</div>' : '<p class="empty">' + (orders.length ? 'لا توجد طلبات مطابقة للتصفية.' : 'لا توجد طلبات جديدة.') + '</p>');
   }
   function exportOrders() {
     var statusNames = {
