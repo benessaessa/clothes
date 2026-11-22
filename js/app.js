@@ -19,6 +19,7 @@
   var mode = 'client';
   var tab = 'orders';
   var search = '';
+  var stockSearch = '';
   var orderNameFilter = '';
   var orderStatusFilter = 'all';
   var cart = {};
@@ -98,6 +99,7 @@
     var input = $('nf-name');
     var status = $('nf-name-status');
     var datalist = $('materialNameSuggestions');
+    if (!input || !status || !datalist) return;
     var query = normalizeMaterialName(input.value);
     var exact = findMaterialByName(input.value);
     datalist.innerHTML = materials
@@ -427,7 +429,11 @@
     });
   }
   function renderStock() {
-    $('stockList').innerHTML = materials.map(function (item) {
+    var normalizedSearch = normalizeMaterialName(stockSearch);
+    var filteredMaterials = materials.filter(function (item) {
+      return !normalizedSearch || normalizeMaterialName(item.name).indexOf(normalizedSearch) >= 0;
+    });
+    $('stockList').innerHTML = filteredMaterials.length ? filteredMaterials.map(function (item) {
       return '<article class="srow">' +
         '<div class="top2">' +
         (item.image ? '<img class="sw sm" src="' + esc(item.image) + '" alt="' + esc(item.name) + '">' : '<div class="sw sm material-placeholder"></div>') +
@@ -438,7 +444,26 @@
         '<label>رابط الصورة<input type="url" inputmode="url" dir="ltr" data-image-id="' + item.id + '" value="' + esc(item.image || '') + '" placeholder="https://example.com/image.jpg"></label>' +
         '</div><button type="button" class="btn ghost delete-btn" data-act="delete" data-id="' + item.id + '">حذف الخامة</button>' +
         '</article>';
-    }).join('');
+    }).join('') : '<p class="empty stock-empty">لا توجد خامات مطابقة للبحث.</p>';
+  }
+  function openAddMaterialSheet() {
+    $('sheet').innerHTML =
+      '<div class="handle"></div>' +
+      '<div class="modal-head"><div><h2>إضافة خامة جديدة</h2><p class="sub">أضف بيانات الخامة للقائمة الرئيسية</p></div>' +
+      '<button type="button" class="modal-close" data-act="close-modal" aria-label="إغلاق">×</button></div>' +
+      '<form class="addbox addbox-modal" id="addForm">' +
+      '<div class="formgrid">' +
+      '<label class="full">اسم الخامة' +
+      '<input id="nf-name" list="materialNameSuggestions" required placeholder="مثال: كوريشه" autocomplete="off">' +
+      '<datalist id="materialNameSuggestions"></datalist>' +
+      '<span id="nf-name-status" class="name-status" aria-live="polite"></span></label>' +
+      '<label>سعر البيع للمتر<input id="nf-price" type="number" inputmode="decimal" min="1" required></label>' +
+      '<label>المتاح بالمتر<input id="nf-stock" type="number" inputmode="numeric" min="0" required></label>' +
+      '<label class="full">رابط صورة الخامة<input id="nf-image" type="url" inputmode="url" dir="ltr" placeholder="https://example.com/image.jpg"></label>' +
+      '</div>' +
+      '<button class="btn block" type="submit">أضف الخامة</button>' +
+      '</form>';
+    openSheet('add-material');
   }
   function toast(message) {
     $('toastText').textContent = message;
@@ -487,6 +512,8 @@
     var act = element.dataset.act;
     if (act === 'mode') setMode(element.dataset.mode);
     else if (act === 'tab') setTab(element.dataset.tab);
+    else if (act === 'open-add-material') openAddMaterialSheet();
+    else if (act === 'close-modal') closeSheet();
     else if (act === 'export-orders') exportOrders();
     else if (act === 'open') openDetail(+element.dataset.id);
     else if (act === 'qminus' || act === 'qplus') {
@@ -521,6 +548,9 @@
     if (event.target.id === 'search') {
       search = event.target.value.trim();
       renderGrid();
+    } else if (event.target.id === 'stockSearch') {
+      stockSearch = event.target.value.trim();
+      renderStock();
     } else if (event.target.id === 'nf-name') {
       updateMaterialNameCheck();
     } else if (event.target.id === 'orderNameFilter') {
@@ -583,6 +613,42 @@
     if (event.key === 'Escape' && sheetKind) closeSheet();
   });
   document.addEventListener('submit', async function (event) {
+    if (event.target.id === 'addForm') {
+      event.preventDefault();
+      var materialName = $('nf-name').value.trim();
+      var materialPrice = +$('nf-price').value;
+      var materialStock = +$('nf-stock').value;
+      if (!materialName || !(materialPrice >= 0) || !(materialStock >= 0)) {
+        toast('اكتب الاسم والسعر والكمية');
+        return;
+      }
+      if (findMaterialByName(materialName)) {
+        updateMaterialNameCheck();
+        $('nf-name').focus();
+        toast('لا يمكن إضافة خامة بنفس الاسم');
+        return;
+      }
+      var materialImageUrl = $('nf-image').value.trim();
+      if (materialImageUrl && !/^https?:\/\//i.test(materialImageUrl)) {
+        toast('أدخل رابطًا يبدأ بـ https://');
+        return;
+      }
+      materials.push({
+        id: nextId++,
+        name: materialName,
+        price: materialPrice,
+        stock: materialStock,
+        image: materialImageUrl
+      });
+      await saveMaterials();
+      event.target.reset();
+      renderGrid();
+      renderStock();
+      renderChips();
+      closeSheet();
+      toast('تمت إضافة الخامة');
+      return;
+    }
     if (event.target.id !== 'orderForm') return;
     event.preventDefault();
     var name = $('orderName').value.trim();
@@ -625,39 +691,6 @@
       toast('تعذر إرسال الطلب');
     }
   });
-  $('addForm').addEventListener('submit', function (event) {
-    event.preventDefault();
-    var name = $('nf-name').value.trim();
-    var price = +$('nf-price').value;
-    var stock = +$('nf-stock').value;
-    if (!name || !(price >= 0) || !(stock >= 0)) {
-      toast('اكتب الاسم والسعر والكمية');
-      return;
-    }
-    if (findMaterialByName(name)) {
-      updateMaterialNameCheck();
-      $('nf-name').focus();
-      toast('لا يمكن إضافة خامة بنفس الاسم');
-      return;
-    }
-    var imageUrl = $('nf-image').value.trim();
-    if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
-      toast('أدخل رابطًا يبدأ بـ https://');
-      return;
-    }
-    var addItem = function (image) {
-      materials.push({ id: nextId++, name: name, price: price, stock: stock, image: image || '' });
-      saveMaterials();
-      event.target.reset();
-      renderGrid();
-      renderStock();
-      renderChips();
-      updateMaterialNameCheck();
-      toast('تمت إضافة الخامة');
-    };
-    addItem(imageUrl);
-  });
-
   $('logoutBtn').addEventListener('click', function () {
     if (isStaticSite()) {
       sessionStorage.removeItem(SESSION_KEY);

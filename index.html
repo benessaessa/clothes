@@ -45,23 +45,17 @@
       </div></div>
       <div class="panel" id="ordersPanel"></div>
       <div class="panel" id="stockPanel" hidden>
-        <form class="addbox" id="addForm">
-          <h3>إضافة خامة جديدة</h3>
-          <div class="formgrid">
-            <label class="full">اسم الخامة
-              <input id="nf-name" list="materialNameSuggestions" required placeholder="مثال: كوريشه" autocomplete="off">
-              <datalist id="materialNameSuggestions"></datalist>
-              <span id="nf-name-status" class="name-status" aria-live="polite"></span>
-            </label>
-            <label>سعر البيع للمتر<input id="nf-price" type="number" inputmode="decimal" min="1" required></label>
-            <label>المتاح بالمتر<input id="nf-stock" type="number" inputmode="numeric" min="0" required></label>
-            <label class="full">رابط صورة الخامة
-              <input id="nf-image" type="url" inputmode="url" dir="ltr" placeholder="https://example.com/image.jpg">
-            </label>
-          </div>
-          <button class="btn block" type="submit">أضف الخامة</button>
-        </form>
-        <div class="panel" id="stockList"></div>
+        <div class="stock-toolbar">
+          <label class="stock-search">
+            <span>البحث باسم الخامة</span>
+            <input id="stockSearch" type="search" value="" placeholder="اكتب اسم الخامة…" autocomplete="off">
+          </label>
+          <button type="button" class="btn add-material-btn" data-act="open-add-material">
+            <span aria-hidden="true">+</span>
+            إضافة خامة جديدة
+          </button>
+        </div>
+        <div class="stock-grid" id="stockList"></div>
       </div>
     </section>
   </main>
@@ -84,6 +78,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-<script src="js/app.js?v=20261122-orders"></script>
+<script src="js/app.js?v=20261122-stock-grid"></script>
 </body>
 </html>
