@@ -13,12 +13,42 @@
     }
     return path;
   }
+  var firebaseAuth = null;
+  if (window.firebase) {
+    var firebaseConfig = {
+      apiKey: 'AIzaSyDQks1xvFxzmRvKlnv4aYxBgF3Bqn9o0Nk',
+      authDomain: 'clothes-d1754.firebaseapp.com',
+      projectId: 'clothes-d1754',
+      storageBucket: 'clothes-d1754.firebasestorage.app',
+      messagingSenderId: '459177272979',
+      appId: '1:459177272979:web:406bb6d5cbf037b7484f66'
+    };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    firebaseAuth = firebase.auth();
+  }
 
   $('loginForm').addEventListener('submit', async function (event) {
     event.preventDefault();
     var username = $('loginUsername').value.trim();
     var password = $('loginPassword').value;
     if (isStaticSite()) {
+      if (firebaseAuth) {
+        try {
+          var email = username.indexOf('@') >= 0 ? username : username + '@clothes.local';
+          await firebaseAuth.signInWithEmailAndPassword(email, password);
+          sessionStorage.setItem('clothes-admin-session-v1', 'authenticated');
+          window.location.href = 'index.html';
+          return;
+        } catch (error) {
+          if (username === 'admin' && password === 'admin123') {
+            sessionStorage.setItem('clothes-admin-session-v1', 'authenticated');
+            window.location.href = 'index.html';
+            return;
+          }
+          $('loginError').textContent = 'بيانات الدخول غير صحيحة';
+          return;
+        }
+      }
       if (username === 'admin' && password === 'admin123') {
         sessionStorage.setItem('clothes-admin-session-v1', 'authenticated');
         window.location.href = 'index.html';

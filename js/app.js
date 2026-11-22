@@ -25,6 +25,22 @@
   var sheetKind = null;
   var toastTimer;
   var nf = new Intl.NumberFormat('ar-EG');
+  var firebaseDb = null;
+  var firebaseReady = false;
+
+  if (window.firebase) {
+    var firebaseConfig = {
+      apiKey: 'AIzaSyDQks1xvFxzmRvKlnv4aYxBgF3Bqn9o0Nk',
+      authDomain: 'clothes-d1754.firebaseapp.com',
+      projectId: 'clothes-d1754',
+      storageBucket: 'clothes-d1754.firebasestorage.app',
+      messagingSenderId: '459177272979',
+      appId: '1:459177272979:web:406bb6d5cbf037b7484f66'
+    };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    firebaseDb = firebase.firestore();
+    firebaseReady = true;
+  }
 
   function $(id) { return document.getElementById(id); }
   function apiUrl(path) {
@@ -54,6 +70,26 @@
     });
   }
   async function loadMaterials() {
+    if (firebaseReady) {
+      firebaseDb.collection('materials').orderBy('id').onSnapshot(function (snapshot) {
+        var shared = [];
+        snapshot.forEach(function (document) {
+          var item = document.data();
+          item.id = Number(item.id || document.id);
+          shared.push(item);
+        });
+        shared.sort(function (a, b) { return Number(a.id) - Number(b.id); });
+        if (shared.length) {
+          materials = shared;
+          nextId = materials.reduce(function (max, item) { return Math.max(max, Number(item.id)); }, 0) + 1;
+          renderGrid();
+          renderStock();
+        }
+      }, function (error) {
+        toast('تعذر تحميل الخامات من Firebase');
+      });
+      return;
+    }
     if (isStaticSite()) {
       try {
         var saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -83,6 +119,27 @@
     }
   }
   async function saveMaterials() {
+    if (firebaseReady) {
+      try {
+        var batch = firebaseDb.batch();
+        var collection = firebaseDb.collection('materials');
+        var snapshot = await collection.get();
+        var liveIds = {};
+        materials.forEach(function (item) {
+          var id = String(item.id);
+          liveIds[id] = true;
+          batch.set(collection.doc(id), Object.assign({}, item, { id: Number(item.id) }));
+        });
+        snapshot.forEach(function (document) {
+          if (!liveIds[document.id]) batch.delete(document.ref);
+        });
+        await batch.commit();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(materials));
+      } catch (error) {
+        toast('تعذر حفظ التعديل في Firebase');
+      }
+      return;
+    }
     if (isStaticSite()) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(materials));
       return;
