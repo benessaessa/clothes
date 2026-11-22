@@ -1,0 +1,7 @@
+{
+  "name": "clothes-catalog",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  }
+}

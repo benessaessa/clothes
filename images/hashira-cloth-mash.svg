@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <defs><pattern id="p" width="28" height="28" patternUnits="userSpaceOnUse"><rect width="28" height="28" fill="#6c7d57"/><path d="M0 14h28M14 0v28" stroke="#b3bd91" stroke-width="4" opacity=".65"/></pattern></defs>
+  <rect width="800" height="600" fill="url(#p)"/><path d="M40 0v600M160 0v600M280 0v600M400 0v600M520 0v600M640 0v600M760 0v600" stroke="#263b32" stroke-width="2" opacity=".35"/>
+</svg>

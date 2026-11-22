@@ -1,0 +1,72 @@
+[
+  {
+    "id": 1,
+    "name": "??????",
+    "price": 0,
+    "stock": 0,
+    "image": "images/koreesha.svg"
+  },
+  {
+    "id": 2,
+    "name": "?????? ????",
+    "price": 0,
+    "stock": 0,
+    "image": "images/escoba-crepe.svg"
+  },
+  {
+    "id": 3,
+    "name": "????? ???? ???",
+    "price": 0,
+    "stock": 0,
+    "image": "images/hashira-cloth-mash.svg"
+  },
+  {
+    "id": 4,
+    "name": "???? ??????",
+    "price": 0,
+    "stock": 0,
+    "image": "images/single-shairat.svg"
+  },
+  {
+    "id": 5,
+    "name": "???? ?????",
+    "price": 0,
+    "stock": 0,
+    "image": "images/single-lycra.svg"
+  },
+  {
+    "id": 6,
+    "name": "???? ???",
+    "price": 0,
+    "stock": 0,
+    "image": "images/legging-ghats.svg"
+  },
+  {
+    "id": 7,
+    "name": "??????",
+    "price": 0,
+    "stock": 0,
+    "image": "images/biscotta.svg"
+  },
+  {
+    "id": 8,
+    "name": "????????",
+    "price": 0,
+    "stock": 0,
+    "image": "images/cardona.svg"
+  },
+  {
+    "id": 9,
+    "name": "?????",
+    "price": 0,
+    "stock": 0,
+    "image": "images/magic.svg"
+  },
+  {
+    "id": 10,
+    "name": "????????",
+    "price": 0,
+    "stock": 0,
+    "image": "images/marseille.svg"
+  }
+]
