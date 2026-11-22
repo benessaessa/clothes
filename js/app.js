@@ -340,11 +340,12 @@
         : 'الآن';
       return '<article class="order">' +
         '<header class="order-header"><div><b>طلب #' + esc(order.id || '') + '</b><span class="sub">' + esc(created) + '</span></div>' +
+        '</header>' +
         '<label class="order-status"><span>حالة الطلب</span><span class="status-control status-' + status + '">' +
         '<select data-order-status data-id="' + esc(order.id) + '" aria-label="حالة الطلب">' +
         Object.keys(statusNames).map(function (value) {
           return '<option value="' + value + '"' + (value === status ? ' selected' : '') + '>' + statusNames[value] + '</option>';
-        }).join('') + '</select></span></label></header>' +
+        }).join('') + '</select></span></label>' +
         '<div class="sumbox order-details"><div><span>الاسم</span><b>' + esc(order.customerName || '') + '</b></div>' +
         '<div><span>الهاتف</span><b dir="ltr">' + esc(order.phone || '') + '</b></div>' +
         '<div><span>البريد</span><b dir="ltr">' + esc(order.email || '') + '</b></div></div>' +
