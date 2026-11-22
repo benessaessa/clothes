@@ -19,6 +19,8 @@
   var mode = 'client';
   var tab = 'orders';
   var search = '';
+  var orderNameFilter = '';
+  var orderStatusFilter = 'all';
   var cart = {};
   var orders = [];
   var detailId = null;
@@ -267,18 +269,35 @@
       '</form>';
   }
   function renderOrders() {
-    if (!orders.length) {
-      $('ordersPanel').innerHTML = '<p class="empty">لا توجد طلبات جديدة.</p>';
-      return;
-    }
-    $('ordersPanel').innerHTML = orders.map(function (order) {
+    var statusNames = {
+      new: 'جديد',
+      in_progress: 'قيد التنفيذ',
+      rejected: 'مرفوض',
+      completed: 'مكتمل'
+    };
+    var statusClasses = {
+      new: 'info',
+      in_progress: 'warn',
+      rejected: 'bad',
+      completed: 'good'
+    };
+    var filteredOrders = orders.filter(function (order) {
+      var matchesName = !orderNameFilter ||
+        String(order.customerName || '').toLocaleLowerCase().indexOf(orderNameFilter.toLocaleLowerCase()) >= 0;
+      var matchesStatus = orderStatusFilter === 'all' || (order.status || 'new') === orderStatusFilter;
+      return matchesName && matchesStatus;
+    });
+    var orderMarkup = filteredOrders.map(function (order) {
       var items = Array.isArray(order.items) ? order.items : [];
+      var status = ['new', 'in_progress', 'rejected', 'completed'].indexOf(order.status) >= 0
+        ? order.status
+        : 'new';
       var created = order.createdAt && order.createdAt.toDate
         ? order.createdAt.toDate().toLocaleString('ar-EG')
         : 'الآن';
       return '<article class="order">' +
         '<header><div><b>طلب #' + esc(order.id || '') + '</b><span class="sub">' + esc(created) + '</span></div>' +
-        '<span class="pill ' + (order.status === 'new' ? 'info' : 'good') + '">' + (order.status === 'new' ? 'طلب جديد' : 'تمت المعالجة') + '</span></header>' +
+        '<span class="pill ' + statusClasses[status] + '">' + statusNames[status] + '</span></header>' +
         '<div class="sumbox"><div><span>الاسم</span><b>' + esc(order.customerName || '') + '</b></div>' +
         '<div><span>الهاتف</span><b dir="ltr">' + esc(order.phone || '') + '</b></div>' +
         '<div><span>البريد</span><b dir="ltr">' + esc(order.email || '') + '</b></div></div>' +
@@ -286,8 +305,21 @@
           return '<li><span>' + esc(item.name) + ' · ' + fmt(item.quantity) + ' متر</span><b>' + egp(item.price * item.quantity) + '</b></li>';
         }).join('') + '</ul>' +
         '<div class="sumbox"><div><span>الإجمالي</span><b>' + egp(order.total || 0) + '</b></div></div>' +
+        '<label class="order-status">حالة الطلب<select data-order-status data-id="' + esc(order.id) + '">' +
+        Object.keys(statusNames).map(function (value) {
+          return '<option value="' + value + '"' + (value === status ? ' selected' : '') + '>' + statusNames[value] + '</option>';
+        }).join('') + '</select></label>' +
         '</article>';
     }).join('');
+    $('ordersPanel').innerHTML =
+      '<div class="order-filters">' +
+      '<label>البحث باسم العميل<input id="orderNameFilter" type="search" value="' + esc(orderNameFilter) + '" placeholder="اكتب اسم العميل"></label>' +
+      '<label>تصفية حسب الحالة<select id="orderStatusFilter">' +
+      '<option value="all"' + (orderStatusFilter === 'all' ? ' selected' : '') + '>كل الحالات</option>' +
+      Object.keys(statusNames).map(function (value) {
+        return '<option value="' + value + '"' + (orderStatusFilter === value ? ' selected' : '') + '>' + statusNames[value] + '</option>';
+      }).join('') + '</select></label></div>' +
+      (filteredOrders.length ? orderMarkup : '<p class="empty">' + (orders.length ? 'لا توجد طلبات مطابقة للتصفية.' : 'لا توجد طلبات جديدة.') + '</p>');
   }
   async function loadOrders() {
     if (!firebaseReady) return;
@@ -397,6 +429,12 @@
     if (event.target.id === 'search') {
       search = event.target.value.trim();
       renderGrid();
+    } else if (event.target.id === 'orderNameFilter') {
+      orderNameFilter = event.target.value.trim();
+      renderOrders();
+      var filter = $('orderNameFilter');
+      filter.focus();
+      filter.setSelectionRange(filter.value.length, filter.value.length);
     } else if (event.target.id === 'qtyInput') {
       detailQty = clampQty(event.target.value);
       updateDetailTotal();
@@ -404,7 +442,30 @@
   });
   document.addEventListener('change', function (event) {
     var target = event.target;
-    if (target.dataset && target.dataset.f) {
+    if (target.id === 'orderStatusFilter') {
+      orderStatusFilter = target.value;
+      renderOrders();
+    } else if (target.dataset && target.dataset.orderStatus !== undefined) {
+      var order = orders.find(function (item) { return item.id === target.dataset.id; });
+      if (!order) return;
+      var previousStatus = order.status || 'new';
+      var nextStatus = target.value;
+      if (!firebaseReady || !firebaseAuth || !firebaseAuth.currentUser) {
+        target.value = previousStatus;
+        toast('يجب تسجيل دخول الأدمن لتحديث حالة الطلب');
+        return;
+      }
+      firebaseDb.collection('orders').doc(order.id).update({ status: nextStatus })
+        .then(function () {
+          order.status = nextStatus;
+          renderOrders();
+          toast('تم تحديث حالة الطلب');
+        })
+        .catch(function () {
+          target.value = previousStatus;
+          toast('تعذر تحديث حالة الطلب');
+        });
+    } else if (target.dataset && target.dataset.f) {
       var item = byId(+target.dataset.id);
       item[target.dataset.f] = Math.max(0, +target.value || 0);
       target.value = item[target.dataset.f];
@@ -508,7 +569,7 @@
     });
   });
 
-  setTab('orders');
+  setTab('stock');
   renderChips();
   renderGrid();
   renderCartbar();
