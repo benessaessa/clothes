@@ -18,12 +18,12 @@
   var firebaseAuth = null;
   if (window.firebase) {
     var firebaseConfig = {
-      apiKey: 'AIzaSyAuX7hqzsakZPea5-rEPc41mTN-HAaY3RM',
-      authDomain: 'clothes-434d8.firebaseapp.com',
-      projectId: 'clothes-434d8',
-      storageBucket: 'clothes-434d8.firebasestorage.app',
-      messagingSenderId: '644317359025',
-      appId: '1:644317359025:web:bc9d22ac9bca32eb8beb90'
+      apiKey: 'AIzaSyD6j5Ro3JmYmhzpYJYfe-VMQgZ6ALSllsw',
+      authDomain: 'amazing-clothes.firebaseapp.com',
+      projectId: 'amazing-clothes',
+      storageBucket: 'amazing-clothes.firebasestorage.app',
+      messagingSenderId: '820217241764',
+      appId: '1:820217241764:web:4020fc34bc4a5f03110631'
     };
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     firebaseAuth = firebase.auth();
