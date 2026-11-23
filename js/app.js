@@ -35,12 +35,12 @@
 
   if (window.firebase) {
     var firebaseConfig = {
-      apiKey: 'AIzaSyDQks1xvFxzmRvKlnv4aYxBgF3Bqn9o0Nk',
-      authDomain: 'clothes-d1754.firebaseapp.com',
-      projectId: 'clothes-d1754',
-      storageBucket: 'clothes-d1754.firebasestorage.app',
-      messagingSenderId: '459177272979',
-      appId: '1:459177272979:web:406bb6d5cbf037b7484f66'
+      apiKey: 'AIzaSyAuX7hqzsakZPea5-rEPc41mTN-HAaY3RM',
+      authDomain: 'clothes-434d8.firebaseapp.com',
+      projectId: 'clothes-434d8',
+      storageBucket: 'clothes-434d8.firebasestorage.app',
+      messagingSenderId: '644317359025',
+      appId: '1:644317359025:web:bc9d22ac9bca32eb8beb90'
     };
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     firebaseDb = firebase.firestore();
