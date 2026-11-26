@@ -32,6 +32,11 @@
   var firebaseDb = null;
   var firebaseAuth = null;
   var firebaseReady = false;
+  var paymentSettings = {
+    paymentNumber: '01114205243',
+    accountName: '',
+    depositPercent: 10
+  };
 
   if (window.firebase) {
     var firebaseConfig = {
@@ -72,6 +77,48 @@
   }
   function fmt(value) { return nf.format(Math.round(value)); }
   function egp(value) { return fmt(value) + ' ج.م'; }
+  function compressPaymentProof(file) {
+    return new Promise(function (resolve, reject) {
+      var sourceReader = new FileReader();
+      sourceReader.onerror = function () { reject(new Error('Could not read payment proof')); };
+      sourceReader.onload = function () {
+        var image = new Image();
+        image.onerror = function () { reject(new Error('Invalid payment proof image')); };
+        image.onload = function () {
+          var scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
+          var canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+          canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+          var quality = 0.82;
+          function encode() {
+            canvas.toBlob(function (blob) {
+              if (!blob) {
+                reject(new Error('Could not compress payment proof'));
+                return;
+              }
+              if (blob.size > 600 * 1024 && quality > 0.52) {
+                quality -= 0.1;
+                encode();
+                return;
+              }
+              if (blob.size > 600 * 1024) {
+                reject(new Error('Compressed payment proof is too large'));
+                return;
+              }
+              var resultReader = new FileReader();
+              resultReader.onerror = function () { reject(new Error('Could not encode payment proof')); };
+              resultReader.onload = function () { resolve(resultReader.result); };
+              resultReader.readAsDataURL(blob);
+            }, 'image/jpeg', quality);
+          }
+          encode();
+        };
+        image.src = sourceReader.result;
+      };
+      sourceReader.readAsDataURL(file);
+    });
+  }
   function esc(value) {
     return String(value).replace(/[&<>"']/g, function (char) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char];
@@ -301,6 +348,7 @@
     var ids = Object.keys(cart);
     if (!ids.length) { closeSheet(); return; }
     var totals = cartTotal();
+    var deposit = Math.ceil(totals.total * paymentSettings.depositPercent / 100);
     $('sheet').innerHTML =
       '<div class="handle"></div><h2>مراجعة الطلب</h2>' +
       '<ul class="lines">' + ids.map(function (id) {
@@ -309,11 +357,18 @@
           '<div style="text-align:end"><b>' + egp(item.price * cart[id]) + '</b><br><button type="button" class="x" data-act="rm" data-id="' + id + '">شيل</button></div></li>';
       }).join('') + '</ul>' +
       '<div class="sumbox"><div><span>الإجمالي</span><b>' + egp(totals.total) + '</b></div></div>' +
+      '<section class="deposit-box"><h3>حوّل العربون</h3>' +
+      '<p>حوّل ' + fmt(paymentSettings.depositPercent) + '% من إجمالي الطلب ( ' + egp(deposit) + ' ) عن طريق إنستاباي أو فودافون كاش.</p>' +
+      '<div class="deposit-account"><span>رقم التحويل</span><b dir="ltr">' + esc(paymentSettings.paymentNumber || '') + '</b></div>' +
+      (paymentSettings.accountName ? '<div class="deposit-account"><span>اسم صاحب الحساب</span><b>' + esc(paymentSettings.accountName) + '</b></div>' : '') +
+      '</section>' +
       '<form id="orderForm" class="order-form">' +
       '<div class="order-form-head"><h3>بيانات التأكيد</h3><span>بياناتك المطلوبة لإتمام الطلب</span></div>' +
       '<label><span>اسم العميل</span><input id="orderName" type="text" autocomplete="name" required minlength="2" placeholder="اكتب اسمك بالكامل"></label>' +
       '<label><span>رقم الهاتف</span><input id="orderPhone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" required minlength="6" maxlength="20" placeholder="01xxxxxxxxx"></label>' +
       '<label><span>البريد الإلكتروني</span><input id="orderEmail" type="email" autocomplete="email" required placeholder="name@example.com"></label>' +
+      '<label><span>طريقة الدفع</span><select id="paymentMethod" required><option value="InstaPay">إنستاباي</option><option value="Vodafone Cash">فودافون كاش</option></select></label>' +
+      '<label class="proof-upload"><span>إرفاق صورة إيصال التحويل</span><input id="paymentProof" type="file" accept="image/jpeg,image/png,image/webp" required><small>صورة JPG أو PNG أو WEBP، بحد أقصى 5 ميجابايت.</small></label>' +
       '<button type="submit" class="btn block">تأكيد وإرسال الطلب</button>' +
       '</form>';
   }
@@ -349,6 +404,13 @@
         '<div class="sumbox order-details"><div><span>الاسم</span><b>' + esc(order.customerName || '') + '</b></div>' +
         '<div><span>الهاتف</span><b dir="ltr">' + esc(order.phone || '') + '</b></div>' +
         '<div><span>البريد</span><b dir="ltr">' + esc(order.email || '') + '</b></div></div>' +
+        (order.paymentProofData
+          ? '<div class="deposit-admin"><div><span>العربون المطلوب</span><b>' + egp(order.depositAmount || 0) + '</b></div>' +
+            '<div><span>طريقة الدفع</span><b>' + esc(order.paymentMethod || 'غير محددة') + '</b></div>' +
+            '<span class="pill warn">تم رفع الإثبات، بانتظار مراجعة العربون</span>' +
+            '<div class="proof-preview"><img src="' + esc(order.paymentProofData || '') + '" alt="صورة إيصال التحويل"></div></div>'
+          : '<div class="deposit-admin"><div><span>العربون المطلوب</span><b>' + egp(order.depositAmount || 0) + '</b></div>' +
+            '<span class="pill warn">لم يرفق إيصال تحويل</span></div>') +
         '<ul class="lines">' + items.map(function (item) {
           return '<li><span>' + esc(item.name) + ' · ' + fmt(item.quantity) + ' متر</span><b>' + egp(item.price * item.quantity) + '</b></li>';
         }).join('') + '</ul>' +
@@ -358,6 +420,12 @@
     $('ordersPanel').innerHTML =
       '<div class="order-toolbar"><div><h2>طلبات العملاء</h2><span class="sub">' + fmt(orders.length) + ' طلب</span></div>' +
       '<button type="button" class="btn export-btn" data-act="export-orders"' + (orders.length ? '' : ' disabled') + '>تصدير كل الطلبات</button></div>' +
+      '<form id="paymentSettingsForm" class="payment-settings">' +
+      '<h3>بيانات استلام العربون</h3>' +
+      '<div class="payment-settings-fields">' +
+      '<label>رقم إنستاباي / فودافون كاش<input id="paymentNumberSetting" type="tel" inputmode="tel" dir="ltr" value="' + esc(paymentSettings.paymentNumber || '') + '" required></label>' +
+      '<label>اسم صاحب الحساب (اختياري)<input id="paymentAccountNameSetting" type="text" value="' + esc(paymentSettings.accountName || '') + '"></label>' +
+      '</div><button class="btn" type="submit">حفظ بيانات الدفع</button></form>' +
       '<div class="order-filters">' +
       '<label>البحث باسم العميل<input id="orderNameFilter" type="search" value="' + esc(orderNameFilter) + '" placeholder="اكتب اسم العميل"></label>' +
       '<label>تصفية حسب الحالة<select id="orderStatusFilter">' +
@@ -427,6 +495,24 @@
       renderOrders();
     }, function () {
       $('ordersPanel').innerHTML = '<p class="empty">تعذر تحميل الطلبات.</p>';
+    });
+  }
+  function loadPaymentSettings() {
+    if (!firebaseReady) return;
+    firebaseDb.collection('settings').doc('payment').onSnapshot(function (document) {
+      if (document.exists) {
+        var savedSettings = document.data();
+        paymentSettings = {
+          paymentNumber: savedSettings.paymentNumber || '',
+          accountName: savedSettings.accountName || '',
+          depositPercent: 10
+        };
+      }
+      if (sheetKind === 'checkout') renderCheckout();
+      if (mode === 'admin' && tab === 'orders') renderOrders();
+    }, function (error) {
+      console.error('Failed to load payment settings', error);
+      toast('تعذر تحميل بيانات الدفع');
     });
   }
   function renderStock() {
@@ -614,6 +700,34 @@
     if (event.key === 'Escape' && sheetKind) closeSheet();
   });
   document.addEventListener('submit', async function (event) {
+    if (event.target.id === 'paymentSettingsForm') {
+      event.preventDefault();
+      if (!firebaseReady || !firebaseAuth || !firebaseAuth.currentUser) {
+        toast('يجب تسجيل دخول الأدمن لحفظ بيانات الدفع');
+        return;
+      }
+      var paymentNumber = $('paymentNumberSetting').value.trim();
+      var accountName = $('paymentAccountNameSetting').value.trim();
+      if (!paymentNumber) {
+        toast('أدخل رقم استلام العربون');
+        return;
+      }
+      try {
+        await firebaseDb.collection('settings').doc('payment').set({
+          paymentNumber: paymentNumber,
+          accountName: accountName,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        paymentSettings.paymentNumber = paymentNumber;
+        paymentSettings.accountName = accountName;
+        renderOrders();
+        toast('تم حفظ بيانات الدفع');
+      } catch (error) {
+        console.error('Failed to save payment settings', error);
+        toast('تعذر حفظ بيانات الدفع');
+      }
+      return;
+    }
     if (event.target.id === 'addForm') {
       event.preventDefault();
       var materialName = $('nf-name').value.trim();
@@ -664,32 +778,49 @@
       toast('البريد الإلكتروني غير صحيح');
       return;
     }
+    var proofFile = $('paymentProof').files[0];
+    if (!proofFile) {
+      toast('أرفق صورة إيصال التحويل');
+      return;
+    }
+    if (!/^image\/(jpeg|png|webp)$/.test(proofFile.type) || proofFile.size > 5 * 1024 * 1024) {
+      toast('اختر صورة JPG أو PNG أو WEBP لا تتجاوز 5 ميجابايت');
+      return;
+    }
+    if (!firebaseReady) {
+      toast('إرسال الطلب غير متاح حاليًا');
+      return;
+    }
     var items = ids.map(function (id) {
       var item = byId(+id);
       return { materialId: item.id, name: item.name, quantity: cart[id], price: item.price };
     });
     var total = cartTotal().total;
+    var depositAmount = Math.ceil(total * paymentSettings.depositPercent / 100);
     try {
-      if (firebaseReady) {
-        await firebaseDb.collection('orders').add({
-          customerName: name,
-          phone: phone,
-          email: email,
-          items: items,
-          total: total,
-          status: 'new',
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } else {
-        throw new Error('Firebase unavailable');
-      }
+      var paymentProofData = await compressPaymentProof(proofFile);
+      var orderRef = firebaseDb.collection('orders').doc();
+      await orderRef.set({
+        customerName: name,
+        phone: phone,
+        email: email,
+        items: items,
+        total: total,
+        depositAmount: depositAmount,
+        paymentMethod: $('paymentMethod').value,
+        paymentStatus: 'submitted',
+        paymentProofData: paymentProofData,
+        status: 'new',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
       cart = {};
       closeSheet();
       renderCartbar();
       renderGrid();
-      toast('تم تأكيد الطلب بنجاح');
+      toast('تم إرسال الطلب وإيصال العربون بنجاح');
     } catch (error) {
-      toast('تعذر إرسال الطلب');
+      console.error('Failed to submit order with payment proof', error);
+      toast('تعذر إرسال الطلب أو رفع الإيصال');
     }
   });
   $('logoutBtn').addEventListener('click', function () {
@@ -750,6 +881,7 @@
         setMode('client');
       });
   }
+  loadPaymentSettings();
   loadMaterials();
   setInterval(loadMaterials, 10000);
 })();

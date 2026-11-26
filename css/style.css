@@ -162,6 +162,26 @@ main { padding-block: 16px 110px; }
 .pay code { direction: ltr; unicode-bidi: embed; background: var(--surface2); padding: 1px 8px; border-radius: 6px; width: fit-content; }
 .file { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
 .file input { width: 100%; }
+.deposit-box {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--good) 35%, var(--line));
+  border-radius: 14px;
+  background: linear-gradient(145deg, var(--good-bg), var(--surface));
+}
+.deposit-box h3 { font-size: 16px; color: var(--good); }
+.deposit-box p { color: var(--muted); font-size: 13px; }
+.deposit-account {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+.deposit-account b { unicode-bidi: plaintext; }
 
 .tabs { display: flex; margin-bottom: 14px; }
 .panel { display: grid; gap: 12px; }
@@ -364,6 +384,35 @@ main { padding-block: 16px 110px; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.deposit-admin {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface2);
+}
+.deposit-admin > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.proof-preview {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.proof-preview img {
+  width: min(100%, 300px);
+  max-height: 320px;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
 .order-header {
   width: 100%;
   display: block;
@@ -489,6 +538,48 @@ details .lines { margin-top: 8px; font-size: 13px; }
   outline: none;
   transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
 }
+.order-form select {
+  width: 100%;
+  min-height: 48px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.order-form .proof-upload small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.payment-settings {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(145deg, var(--surface), var(--surface2));
+}
+.payment-settings h3 { font-size: 16px; }
+.payment-settings-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.payment-settings label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.payment-settings input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--surface);
+}
+.payment-settings button { justify-self: start; }
 .order-form input::placeholder {
   color: var(--muted);
   opacity: .75;
@@ -588,6 +679,7 @@ details .lines { margin-top: 8px; font-size: 13px; }
 }
 @media (max-width: 520px) {
   .order-filters { grid-template-columns: 1fr; }
+  .payment-settings-fields { grid-template-columns: 1fr; }
   .orders-grid { grid-template-columns: 1fr; }
   .order-header { display: block; }
   .order-status { width: 100%; gap: 5px; }
