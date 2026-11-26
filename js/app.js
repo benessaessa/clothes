@@ -20,6 +20,7 @@
   var tab = 'orders';
   var search = '';
   var stockSearch = '';
+  var stockEdits = {};
   var orderNameFilter = '';
   var orderStatusFilter = 'all';
   var cart = {};
@@ -544,15 +545,20 @@
       return !normalizedSearch || normalizeMaterialName(item.name).indexOf(normalizedSearch) >= 0;
     });
     $('stockList').innerHTML = filteredMaterials.length ? filteredMaterials.map(function (item) {
+      var draft = stockEdits[item.id] || item;
       return '<article class="srow">' +
         '<div class="top2">' +
-        (item.image ? '<img class="sw sm" src="' + esc(item.image) + '" alt="' + esc(item.name) + '">' : '<div class="sw sm material-placeholder"></div>') +
+        '<div class="stock-image-preview" data-stock-image="' + item.id + '">' +
+        (draft.image ? '<img class="sw sm" src="' + esc(draft.image) + '" alt="' + esc(item.name) + '">' : '<div class="sw sm material-placeholder"></div>') +
+        '</div>' +
         '<div><b>' + esc(item.name) + '</b><span class="sub">القائمة الرئيسية</span></div></div>' +
         '<div class="fields">' +
-        '<label>السعر للمتر<input type="number" inputmode="decimal" min="0" data-f="price" data-id="' + item.id + '" value="' + item.price + '"></label>' +
-        '<label>المتاح بالمتر<input type="number" inputmode="numeric" min="0" data-f="stock" data-id="' + item.id + '" value="' + item.stock + '"></label>' +
+        '<label>السعر للمتر<input type="number" inputmode="decimal" min="0" data-f="price" data-id="' + item.id + '" value="' + esc(draft.price) + '"></label>' +
+        '<label>المتاح بالمتر<input type="number" inputmode="numeric" min="0" data-f="stock" data-id="' + item.id + '" value="' + esc(draft.stock) + '"></label>' +
         '<label>رفع صورة جديدة<input type="file" accept="image/jpeg,image/png,image/webp" data-image-id="' + item.id + '"><small>JPG أو PNG أو WEBP، حتى 5 ميجابايت</small></label>' +
-        '</div><button type="button" class="btn ghost delete-btn" data-act="delete" data-id="' + item.id + '">حذف الخامة</button>' +
+        '</div><div class="stock-card-actions">' +
+        '<button type="button" class="btn save-material-btn" data-act="save-material" data-id="' + item.id + '">حفظ التعديلات</button>' +
+        '<button type="button" class="btn ghost delete-btn" data-act="delete" data-id="' + item.id + '">حذف الخامة</button></div>' +
         '</article>';
     }).join('') : '<p class="empty stock-empty">لا توجد خامات مطابقة للبحث.</p>';
   }
@@ -617,7 +623,7 @@
     $('stockPanel').hidden = value !== 'stock';
   }
 
-  document.addEventListener('click', function (event) {
+  document.addEventListener('click', async function (event) {
     if (event.target === $('scrim')) { closeSheet(); return; }
     var element = event.target.closest('[data-act]');
     if (!element) return;
@@ -645,14 +651,66 @@
       delete cart[element.dataset.id];
       renderCartbar();
       renderCheckout();
+    } else if (act === 'save-material') {
+      var material = byId(+element.dataset.id);
+      if (!material) return;
+      var draft = stockEdits[material.id] || material;
+      var price = Number(draft.price);
+      var stock = Number(draft.stock);
+      if (!Number.isFinite(price) || price < 0 || !Number.isFinite(stock) || stock < 0) {
+        toast('أدخل سعرًا وكمية صحيحين قبل الحفظ');
+        return;
+      }
+      var updatedMaterial = {
+        id: material.id,
+        name: material.name,
+        price: price,
+        stock: stock,
+        image: draft.image || ''
+      };
+      try {
+        if (firebaseReady) {
+          await firebaseDb.collection('materials').doc(String(material.id)).set(updatedMaterial);
+        } else {
+          var previousMaterial = Object.assign({}, material);
+          Object.assign(material, updatedMaterial);
+          if (!await saveMaterials()) {
+            Object.assign(material, previousMaterial);
+            return;
+          }
+        }
+        Object.assign(material, updatedMaterial);
+        delete stockEdits[material.id];
+        renderGrid();
+        renderStock();
+        toast('تم حفظ تعديلات ' + material.name);
+      } catch (error) {
+        console.error('Failed to save product', error);
+        toast('تعذر حفظ تعديلات الخامة');
+      }
     } else if (act === 'delete') {
       var item = byId(+element.dataset.id);
       if (item && confirm('هل تريد حذف ' + item.name + '؟')) {
-        materials = materials.filter(function (entry) { return entry.id !== item.id; });
-        saveMaterials();
-        renderGrid();
-        renderStock();
-        toast('تم حذف الخامة');
+        try {
+          if (firebaseReady) {
+            await firebaseDb.collection('materials').doc(String(item.id)).delete();
+            materials = materials.filter(function (entry) { return entry.id !== item.id; });
+          } else {
+            var oldMaterials = materials;
+            materials = materials.filter(function (entry) { return entry.id !== item.id; });
+            if (!await saveMaterials()) {
+              materials = oldMaterials;
+              return;
+            }
+          }
+          delete stockEdits[item.id];
+          renderGrid();
+          renderStock();
+          toast('تم حذف الخامة');
+        } catch (error) {
+          console.error('Failed to delete product', error);
+          toast('تعذر حذف الخامة');
+        }
       }
     }
   });
@@ -663,6 +721,16 @@
     } else if (event.target.id === 'stockSearch') {
       stockSearch = event.target.value.trim();
       renderStock();
+    } else if (event.target.dataset && event.target.dataset.f) {
+      var draftItem = byId(+event.target.dataset.id);
+      if (!draftItem) return;
+      var edit = stockEdits[draftItem.id] || {
+        price: draftItem.price,
+        stock: draftItem.stock,
+        image: draftItem.image || ''
+      };
+      edit[event.target.dataset.f] = event.target.value;
+      stockEdits[draftItem.id] = edit;
     } else if (event.target.id === 'nf-name') {
       updateMaterialNameCheck();
     } else if (event.target.id === 'orderNameFilter') {
@@ -703,14 +771,9 @@
           target.value = previousStatus;
           toast('تعذر تحديث حالة الطلب');
         });
-    } else if (target.dataset && target.dataset.f) {
-      var item = byId(+target.dataset.id);
-      item[target.dataset.f] = Math.max(0, +target.value || 0);
-      target.value = item[target.dataset.f];
-      saveMaterials();
-      renderGrid();
     } else if (target.dataset && target.dataset.imageId) {
       var imageItem = byId(+target.dataset.imageId);
+      if (!imageItem) return;
       var imageFile = target.files[0];
       if (!imageFile) return;
       if (!/^image\/(jpeg|png|webp)$/.test(imageFile.type) || imageFile.size > 5 * 1024 * 1024) {
@@ -718,21 +781,24 @@
         toast('اختر صورة JPG أو PNG أو WEBP لا تتجاوز 5 ميجابايت');
         return;
       }
-      var previousImage = imageItem.image;
-      var imageSaved = false;
       try {
-        imageItem.image = await compressImage(imageFile);
-        imageSaved = await saveMaterials();
-        if (!imageSaved) imageItem.image = previousImage;
+        var imageEdit = stockEdits[imageItem.id] || {
+          price: imageItem.price,
+          stock: imageItem.stock,
+          image: imageItem.image || ''
+        };
+        imageEdit.image = await compressImage(imageFile);
+        stockEdits[imageItem.id] = imageEdit;
+        var preview = document.querySelector('[data-stock-image="' + imageItem.id + '"]');
+        if (preview) {
+          preview.innerHTML = '<img class="sw sm" src="' + esc(imageEdit.image) + '" alt="' + esc(imageItem.name) + '">';
+        }
+        toast('الصورة جاهزة، اضغط حفظ التعديلات');
       } catch (error) {
         console.error('Failed to process product image', error);
-        imageItem.image = previousImage;
         toast('تعذر تجهيز صورة الخامة');
       }
       target.value = '';
-      renderGrid();
-      renderStock();
-      if (imageSaved) toast('تم تحديث صورة الخامة');
     }
   });
   document.addEventListener('keydown', function (event) {
@@ -796,17 +862,29 @@
         toast('تعذر تجهيز صورة الخامة');
         return;
       }
-      materials.push({
+      var newMaterial = {
         id: nextId,
         name: materialName,
         price: materialPrice,
         stock: materialStock,
         image: materialImage
-      });
-      if (!await saveMaterials()) {
-        materials.pop();
+      };
+      try {
+        if (firebaseReady) {
+          await firebaseDb.collection('materials').doc(String(newMaterial.id)).set(newMaterial);
+        } else {
+          materials.push(newMaterial);
+          if (!await saveMaterials()) {
+            materials.pop();
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Failed to create product', error);
+        toast('تعذر حفظ الخامة الجديدة');
         return;
       }
+      if (firebaseReady && !byId(newMaterial.id)) materials.push(newMaterial);
       nextId++;
       event.target.reset();
       renderGrid();

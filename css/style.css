@@ -245,10 +245,17 @@ main { padding-block: 16px 110px; }
   padding-bottom: 8px;
   border-bottom: 1px solid var(--line);
 }
+.stock-grid .top2 .stock-image-preview {
+  display: block;
+  width: 72px;
+  height: 72px;
+  flex: none;
+}
 .stock-grid .sw.sm {
   width: 72px;
   border-radius: 12px;
   border: 1px solid var(--line);
+  object-fit: cover;
 }
 .stock-grid .fields {
   grid-template-columns: 1fr;
@@ -259,6 +266,13 @@ main { padding-block: 16px 110px; }
   color: var(--bad);
   background: var(--bad-bg);
 }
+.stock-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+.stock-card-actions .save-material-btn { flex: 1; }
+.stock-card-actions .delete-btn { width: auto; margin-top: 0; }
 .stock-empty {
   grid-column: 1 / -1;
 }
