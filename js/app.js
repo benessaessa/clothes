@@ -359,6 +359,7 @@
       '<div class="sumbox"><div><span>الإجمالي</span><b>' + egp(totals.total) + '</b></div></div>' +
       '<section class="deposit-box"><h3>حوّل العربون</h3>' +
       '<p>حوّل ' + fmt(paymentSettings.depositPercent) + '% من إجمالي الطلب ( ' + egp(deposit) + ' ) عن طريق إنستاباي أو فودافون كاش.</p>' +
+      '<div class="deposit-account"><span>الباقي عند الاستلام (بعد خصم العربون)</span><b>' + egp(Math.max(0, totals.total - deposit)) + '</b></div>' +
       '<div class="deposit-account"><span>رقم التحويل</span><b dir="ltr">' + esc(paymentSettings.paymentNumber || '') + '</b></div>' +
       (paymentSettings.accountName ? '<div class="deposit-account"><span>اسم صاحب الحساب</span><b>' + esc(paymentSettings.accountName) + '</b></div>' : '') +
       '</section>' +
@@ -406,10 +407,12 @@
         '<div><span>البريد</span><b dir="ltr">' + esc(order.email || '') + '</b></div></div>' +
         (order.paymentProofData
           ? '<div class="deposit-admin"><div><span>العربون المطلوب</span><b>' + egp(order.depositAmount || 0) + '</b></div>' +
+            '<div><span>الباقي عند الاستلام</span><b>' + egp(Math.max(0, (order.total || 0) - (order.depositAmount || 0))) + '</b></div>' +
             '<div><span>طريقة الدفع</span><b>' + esc(order.paymentMethod || 'غير محددة') + '</b></div>' +
             '<span class="pill warn">تم رفع الإثبات، بانتظار مراجعة العربون</span>' +
             '<div class="proof-preview"><img src="' + esc(order.paymentProofData || '') + '" alt="صورة إيصال التحويل"></div></div>'
           : '<div class="deposit-admin"><div><span>العربون المطلوب</span><b>' + egp(order.depositAmount || 0) + '</b></div>' +
+            '<div><span>الباقي عند الاستلام</span><b>' + egp(Math.max(0, (order.total || 0) - (order.depositAmount || 0))) + '</b></div>' +
             '<span class="pill warn">لم يرفق إيصال تحويل</span></div>') +
         '<ul class="lines">' + items.map(function (item) {
           return '<li><span>' + esc(item.name) + ' · ' + fmt(item.quantity) + ' متر</span><b>' + egp(item.price * item.quantity) + '</b></li>';
@@ -449,7 +452,7 @@
     };
     var rows = [[
       'رقم الطلب', 'التاريخ', 'اسم العميل', 'الهاتف', 'البريد الإلكتروني',
-      'المنتجات', 'الإجمالي', 'الحالة'
+      'المنتجات', 'الإجمالي', 'العربون', 'الباقي عند الاستلام', 'الحالة'
     ]];
     orders.forEach(function (order) {
       var created = order.createdAt && order.createdAt.toDate
@@ -466,6 +469,8 @@
         order.email,
         items,
         order.total,
+        order.depositAmount || 0,
+        Math.max(0, (order.total || 0) - (order.depositAmount || 0)),
         statusNames[order.status || 'new'] || statusNames.new
       ]);
     });
