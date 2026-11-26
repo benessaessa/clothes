@@ -505,6 +505,22 @@ details .lines { margin-top: 8px; font-size: 13px; }
 .formgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .formgrid .full { grid-column: 1 / -1; }
 .addbox input[type="color"] { padding: 2px; height: 38px; }
+.addbox input[type="file"]::file-selector-button,
+.srow input[type="file"]::file-selector-button {
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 12px;
+  margin-inline-end: 8px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.addbox input[type="file"],
+.srow input[type="file"] {
+  padding: 6px;
+}
+.image-upload { gap: 7px !important; }
 .delete-btn {
   width: fit-content;
   padding-inline: 14px;

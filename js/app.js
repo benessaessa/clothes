@@ -77,13 +77,13 @@
   }
   function fmt(value) { return nf.format(Math.round(value)); }
   function egp(value) { return fmt(value) + ' ج.م'; }
-  function compressPaymentProof(file) {
+  function compressImage(file) {
     return new Promise(function (resolve, reject) {
       var sourceReader = new FileReader();
-      sourceReader.onerror = function () { reject(new Error('Could not read payment proof')); };
+      sourceReader.onerror = function () { reject(new Error('Could not read image')); };
       sourceReader.onload = function () {
         var image = new Image();
-        image.onerror = function () { reject(new Error('Invalid payment proof image')); };
+        image.onerror = function () { reject(new Error('Invalid image')); };
         image.onload = function () {
           var scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
           var canvas = document.createElement('canvas');
@@ -94,7 +94,7 @@
           function encode() {
             canvas.toBlob(function (blob) {
               if (!blob) {
-                reject(new Error('Could not compress payment proof'));
+                reject(new Error('Could not compress image'));
                 return;
               }
               if (blob.size > 600 * 1024 && quality > 0.52) {
@@ -103,11 +103,11 @@
                 return;
               }
               if (blob.size > 600 * 1024) {
-                reject(new Error('Compressed payment proof is too large'));
+                reject(new Error('Compressed image is too large'));
                 return;
               }
               var resultReader = new FileReader();
-              resultReader.onerror = function () { reject(new Error('Could not encode payment proof')); };
+              resultReader.onerror = function () { reject(new Error('Could not encode image')); };
               resultReader.onload = function () { resolve(resultReader.result); };
               resultReader.readAsDataURL(blob);
             }, 'image/jpeg', quality);
@@ -227,24 +227,39 @@
         var collection = firebaseDb.collection('materials');
         var snapshot = await collection.get();
         var liveIds = {};
+        var existingMaterials = {};
+        var hasChanges = false;
+        snapshot.forEach(function (document) {
+          existingMaterials[document.id] = document.data();
+        });
         materials.forEach(function (item) {
           var id = String(item.id);
+          var data = Object.assign({}, item, { id: Number(item.id) });
+          var existing = existingMaterials[id];
           liveIds[id] = true;
-          batch.set(collection.doc(id), Object.assign({}, item, { id: Number(item.id) }));
+          if (!existing || existing.id !== data.id || existing.name !== data.name || existing.price !== data.price ||
+              existing.stock !== data.stock || existing.image !== data.image) {
+            batch.set(collection.doc(id), data);
+            hasChanges = true;
+          }
         });
         snapshot.forEach(function (document) {
-          if (!liveIds[document.id]) batch.delete(document.ref);
+          if (!liveIds[document.id]) {
+            batch.delete(document.ref);
+            hasChanges = true;
+          }
         });
-        await batch.commit();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(materials));
+        if (hasChanges) await batch.commit();
+        return true;
       } catch (error) {
+        console.error('Failed to save materials to Firebase', error);
         toast('تعذر حفظ التعديل في Firebase');
+        return false;
       }
-      return;
     }
     if (isStaticSite()) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(materials));
-      return;
+      return true;
     }
     try {
       var response = await fetch(apiUrl('/api/materials'), {
@@ -254,8 +269,11 @@
         body: JSON.stringify(materials)
       });
       if (!response.ok) throw new Error('Save failed');
+      return true;
     } catch (error) {
+      console.error('Failed to save materials to server', error);
       toast('تعذر حفظ التعديل على السيرفر');
+      return false;
     }
   }
   function byId(id) {
@@ -533,7 +551,7 @@
         '<div class="fields">' +
         '<label>السعر للمتر<input type="number" inputmode="decimal" min="0" data-f="price" data-id="' + item.id + '" value="' + item.price + '"></label>' +
         '<label>المتاح بالمتر<input type="number" inputmode="numeric" min="0" data-f="stock" data-id="' + item.id + '" value="' + item.stock + '"></label>' +
-        '<label>رابط الصورة<input type="url" inputmode="url" dir="ltr" data-image-id="' + item.id + '" value="' + esc(item.image || '') + '" placeholder="https://example.com/image.jpg"></label>' +
+        '<label>رفع صورة جديدة<input type="file" accept="image/jpeg,image/png,image/webp" data-image-id="' + item.id + '"><small>JPG أو PNG أو WEBP، حتى 5 ميجابايت</small></label>' +
         '</div><button type="button" class="btn ghost delete-btn" data-act="delete" data-id="' + item.id + '">حذف الخامة</button>' +
         '</article>';
     }).join('') : '<p class="empty stock-empty">لا توجد خامات مطابقة للبحث.</p>';
@@ -551,7 +569,9 @@
       '<span id="nf-name-status" class="name-status" aria-live="polite"></span></label>' +
       '<label>سعر البيع للمتر<input id="nf-price" type="number" inputmode="decimal" min="1" required></label>' +
       '<label>المتاح بالمتر<input id="nf-stock" type="number" inputmode="numeric" min="0" required></label>' +
-      '<label class="full">رابط صورة الخامة<input id="nf-image" type="url" inputmode="url" dir="ltr" placeholder="https://example.com/image.jpg"></label>' +
+      '<label class="full image-upload">صورة الخامة' +
+      '<input id="nf-image" type="file" accept="image/jpeg,image/png,image/webp">' +
+      '<span id="nf-image-name" class="sub">اختياري — JPG أو PNG أو WEBP حتى 5 ميجابايت</span></label>' +
       '</div>' +
       '<button class="btn block" type="submit">أضف الخامة</button>' +
       '</form>';
@@ -656,9 +676,11 @@
       updateDetailTotal();
     }
   });
-  document.addEventListener('change', function (event) {
+  document.addEventListener('change', async function (event) {
     var target = event.target;
-    if (target.id === 'orderStatusFilter') {
+    if (target.id === 'nf-image') {
+      $('nf-image-name').textContent = target.files[0] ? target.files[0].name : 'اختياري — JPG أو PNG أو WEBP حتى 5 ميجابايت';
+    } else if (target.id === 'orderStatusFilter') {
       orderStatusFilter = target.value;
       renderOrders();
     } else if (target.dataset && target.dataset.orderStatus !== undefined) {
@@ -689,16 +711,28 @@
       renderGrid();
     } else if (target.dataset && target.dataset.imageId) {
       var imageItem = byId(+target.dataset.imageId);
-      var imageUrl = target.value.trim();
-      if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
-        toast('أدخل رابطًا يبدأ بـ https://');
+      var imageFile = target.files[0];
+      if (!imageFile) return;
+      if (!/^image\/(jpeg|png|webp)$/.test(imageFile.type) || imageFile.size > 5 * 1024 * 1024) {
+        target.value = '';
+        toast('اختر صورة JPG أو PNG أو WEBP لا تتجاوز 5 ميجابايت');
         return;
       }
-      imageItem.image = imageUrl;
-      saveMaterials();
+      var previousImage = imageItem.image;
+      var imageSaved = false;
+      try {
+        imageItem.image = await compressImage(imageFile);
+        imageSaved = await saveMaterials();
+        if (!imageSaved) imageItem.image = previousImage;
+      } catch (error) {
+        console.error('Failed to process product image', error);
+        imageItem.image = previousImage;
+        toast('تعذر تجهيز صورة الخامة');
+      }
+      target.value = '';
       renderGrid();
       renderStock();
-      toast(imageUrl ? 'تم تحديث رابط الصورة' : 'تمت إزالة الصورة');
+      if (imageSaved) toast('تم تحديث صورة الخامة');
     }
   });
   document.addEventListener('keydown', function (event) {
@@ -748,19 +782,32 @@
         toast('لا يمكن إضافة خامة بنفس الاسم');
         return;
       }
-      var materialImageUrl = $('nf-image').value.trim();
-      if (materialImageUrl && !/^https?:\/\//i.test(materialImageUrl)) {
-        toast('أدخل رابطًا يبدأ بـ https://');
+      var materialImageFile = $('nf-image').files[0];
+      if (materialImageFile &&
+          (!/^image\/(jpeg|png|webp)$/.test(materialImageFile.type) || materialImageFile.size > 5 * 1024 * 1024)) {
+        toast('اختر صورة JPG أو PNG أو WEBP لا تتجاوز 5 ميجابايت');
+        return;
+      }
+      var materialImage = '';
+      try {
+        if (materialImageFile) materialImage = await compressImage(materialImageFile);
+      } catch (error) {
+        console.error('Failed to process new product image', error);
+        toast('تعذر تجهيز صورة الخامة');
         return;
       }
       materials.push({
-        id: nextId++,
+        id: nextId,
         name: materialName,
         price: materialPrice,
         stock: materialStock,
-        image: materialImageUrl
+        image: materialImage
       });
-      await saveMaterials();
+      if (!await saveMaterials()) {
+        materials.pop();
+        return;
+      }
+      nextId++;
       event.target.reset();
       renderGrid();
       renderStock();
@@ -803,7 +850,7 @@
     var total = cartTotal().total;
     var depositAmount = Math.ceil(total * paymentSettings.depositPercent / 100);
     try {
-      var paymentProofData = await compressPaymentProof(proofFile);
+      var paymentProofData = await compressImage(proofFile);
       var orderRef = firebaseDb.collection('orders').doc();
       await orderRef.set({
         customerName: name,
