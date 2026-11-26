@@ -24,13 +24,25 @@ service cloud.firestore {
         request.resource.data.total is number &&
         request.resource.data.total > 0 &&
         request.resource.data.depositAmount is number &&
-        request.resource.data.depositAmount >= request.resource.data.total * 0.1 &&
-        request.resource.data.depositAmount < request.resource.data.total * 0.1 + 1 &&
-        request.resource.data.paymentMethod in ['InstaPay', 'Vodafone Cash'] &&
-        request.resource.data.paymentStatus == 'submitted' &&
-        request.resource.data.paymentProofData is string &&
-        request.resource.data.paymentProofData.size() <= 900000 &&
-        request.resource.data.paymentProofData.matches('^data:image/jpeg;base64,[A-Za-z0-9+/]+=*$') &&
+        (
+          (
+            request.resource.data.paymentMethod == 'deposit' &&
+            request.resource.data.depositAmount >= request.resource.data.total * 0.1 &&
+            request.resource.data.depositAmount < request.resource.data.total * 0.1 + 1 &&
+            request.resource.data.paymentChannel in ['InstaPay', 'Vodafone Cash'] &&
+            request.resource.data.paymentStatus == 'submitted' &&
+            request.resource.data.paymentProofData is string &&
+            request.resource.data.paymentProofData.size() <= 900000 &&
+            request.resource.data.paymentProofData.matches('^data:image/jpeg;base64,[A-Za-z0-9+/]+=*$')
+          ) ||
+          (
+            request.resource.data.paymentMethod == 'cash_on_delivery' &&
+            request.resource.data.depositAmount == 0 &&
+            request.resource.data.paymentChannel == '' &&
+            request.resource.data.paymentStatus == 'cash_on_delivery' &&
+            request.resource.data.paymentProofData == ''
+          )
+        ) &&
         request.resource.data.status == 'new';
       allow update, delete: if isAdmin();
     }

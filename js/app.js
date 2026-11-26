@@ -28,6 +28,7 @@
   var detailId = null;
   var detailQty = 1;
   var sheetKind = null;
+  var checkoutPaymentMethod = 'deposit';
   var toastTimer;
   var nf = new Intl.NumberFormat('ar-EG');
   var firebaseDb = null;
@@ -367,7 +368,6 @@
     var ids = Object.keys(cart);
     if (!ids.length) { closeSheet(); return; }
     var totals = cartTotal();
-    var deposit = Math.ceil(totals.total * paymentSettings.depositPercent / 100);
     $('sheet').innerHTML =
       '<div class="handle"></div><h2>مراجعة الطلب</h2>' +
       '<ul class="lines">' + ids.map(function (id) {
@@ -376,21 +376,43 @@
           '<div style="text-align:end"><b>' + egp(item.price * cart[id]) + '</b><br><button type="button" class="x" data-act="rm" data-id="' + id + '">شيل</button></div></li>';
       }).join('') + '</ul>' +
       '<div class="sumbox"><div><span>الإجمالي</span><b>' + egp(totals.total) + '</b></div></div>' +
+      '<form id="orderForm" class="order-form">' +
+      '<div class="order-form-head"><h3>بيانات التأكيد</h3><span>بياناتك المطلوبة لإتمام الطلب</span></div>' +
+      '<label><span>اسم العميل</span><input id="orderName" type="text" autocomplete="name" required minlength="2" placeholder="اكتب اسمك بالكامل"></label>' +
+      '<label><span>رقم الهاتف</span><input id="orderPhone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" required minlength="6" maxlength="20" placeholder="01xxxxxxxxx"></label>' +
+      '<label><span>البريد الإلكتروني</span><input id="orderEmail" type="email" autocomplete="email" required placeholder="name@example.com"></label>' +
+      '<label><span>طريقة الدفع</span><select id="paymentMethod" required>' +
+      '<option value="deposit"' + (checkoutPaymentMethod === 'deposit' ? ' selected' : '') + '>دفع عربون</option>' +
+      '<option value="cash_on_delivery"' + (checkoutPaymentMethod === 'cash_on_delivery' ? ' selected' : '') + '>الدفع عند الاستلام</option>' +
+      '</select></label>' +
+      '<div id="paymentDetails"></div>' +
+      '<button type="submit" class="btn block">تأكيد وإرسال الطلب</button>' +
+      '</form>';
+    renderPaymentDetails();
+  }
+  function renderPaymentDetails() {
+    var paymentDetails = $('paymentDetails');
+    if (!paymentDetails) return;
+    var totals = cartTotal();
+    if (checkoutPaymentMethod === 'cash_on_delivery') {
+      paymentDetails.innerHTML =
+        '<section class="deposit-box"><h3>الدفع عند الاستلام</h3>' +
+        '<div class="deposit-account"><span>المبلغ كاملًا عند الاستلام</span><b>' + egp(totals.total) + '</b></div>' +
+        '</section>';
+      return;
+    }
+    var deposit = Math.ceil(totals.total * paymentSettings.depositPercent / 100);
+    paymentDetails.innerHTML =
       '<section class="deposit-box"><h3>حوّل العربون</h3>' +
       '<p>حوّل ' + fmt(paymentSettings.depositPercent) + '% من إجمالي الطلب ( ' + egp(deposit) + ' ) عن طريق إنستاباي أو فودافون كاش.</p>' +
       '<div class="deposit-account"><span>الباقي عند الاستلام (بعد خصم العربون)</span><b>' + egp(Math.max(0, totals.total - deposit)) + '</b></div>' +
       '<div class="deposit-account"><span>رقم التحويل</span><b dir="ltr">' + esc(paymentSettings.paymentNumber || '') + '</b></div>' +
       (paymentSettings.accountName ? '<div class="deposit-account"><span>اسم صاحب الحساب</span><b>' + esc(paymentSettings.accountName) + '</b></div>' : '') +
       '</section>' +
-      '<form id="orderForm" class="order-form">' +
-      '<div class="order-form-head"><h3>بيانات التأكيد</h3><span>بياناتك المطلوبة لإتمام الطلب</span></div>' +
-      '<label><span>اسم العميل</span><input id="orderName" type="text" autocomplete="name" required minlength="2" placeholder="اكتب اسمك بالكامل"></label>' +
-      '<label><span>رقم الهاتف</span><input id="orderPhone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" required minlength="6" maxlength="20" placeholder="01xxxxxxxxx"></label>' +
-      '<label><span>البريد الإلكتروني</span><input id="orderEmail" type="email" autocomplete="email" required placeholder="name@example.com"></label>' +
-      '<label><span>طريقة الدفع</span><select id="paymentMethod" required><option value="InstaPay">إنستاباي</option><option value="Vodafone Cash">فودافون كاش</option></select></label>' +
-      '<label class="proof-upload"><span>إرفاق صورة إيصال التحويل</span><input id="paymentProof" type="file" accept="image/jpeg,image/png,image/webp" required><small>صورة JPG أو PNG أو WEBP، بحد أقصى 5 ميجابايت.</small></label>' +
-      '<button type="submit" class="btn block">تأكيد وإرسال الطلب</button>' +
-      '</form>';
+      '<label><span>طريقة تحويل العربون</span><select id="paymentChannel" required>' +
+      '<option value="InstaPay">إنستاباي</option><option value="Vodafone Cash">فودافون كاش</option>' +
+      '</select></label>' +
+      '<label class="proof-upload"><span>إرفاق صورة إيصال التحويل</span><input id="paymentProof" type="file" accept="image/jpeg,image/png,image/webp" required><small>صورة JPG أو PNG أو WEBP، بحد أقصى 5 ميجابايت.</small></label>';
   }
   function renderOrders() {
     var statusNames = {
@@ -424,13 +446,17 @@
         '<div class="sumbox order-details"><div><span>الاسم</span><b>' + esc(order.customerName || '') + '</b></div>' +
         '<div><span>الهاتف</span><b dir="ltr">' + esc(order.phone || '') + '</b></div>' +
         '<div><span>البريد</span><b dir="ltr">' + esc(order.email || '') + '</b></div></div>' +
-        (order.paymentProofData
+        (order.paymentMethod === 'cash_on_delivery'
+          ? '<div class="deposit-admin"><div><span>طريقة الدفع</span><b>الدفع عند الاستلام</b></div>' +
+            '<div><span>المبلغ المستحق عند الاستلام</span><b>' + egp(order.total || 0) + '</b></div>' +
+            '<span class="pill good">الدفع عند الاستلام</span></div>'
+          : order.paymentProofData
           ? '<div class="deposit-admin"><div><span>العربون المطلوب</span><b>' + egp(order.depositAmount || 0) + '</b></div>' +
             '<div><span>الباقي عند الاستلام</span><b>' + egp(Math.max(0, (order.total || 0) - (order.depositAmount || 0))) + '</b></div>' +
-            '<div><span>طريقة الدفع</span><b>' + esc(order.paymentMethod || 'غير محددة') + '</b></div>' +
+              '<div><span>طريقة الدفع</span><b>دفع عربون - ' + esc(order.paymentChannel || order.paymentMethod || 'غير محددة') + '</b></div>' +
             '<span class="pill warn">تم رفع الإثبات، بانتظار مراجعة العربون</span>' +
             '<div class="proof-preview"><img src="' + esc(order.paymentProofData || '') + '" alt="صورة إيصال التحويل"></div></div>'
-          : '<div class="deposit-admin"><div><span>العربون المطلوب</span><b>' + egp(order.depositAmount || 0) + '</b></div>' +
+            : '<div class="deposit-admin"><div><span>العربون المطلوب</span><b>' + egp(order.depositAmount || 0) + '</b></div>' +
             '<div><span>الباقي عند الاستلام</span><b>' + egp(Math.max(0, (order.total || 0) - (order.depositAmount || 0))) + '</b></div>' +
             '<span class="pill warn">لم يرفق إيصال تحويل</span></div>') +
         '<ul class="lines">' + items.map(function (item) {
@@ -471,7 +497,7 @@
     };
     var rows = [[
       'رقم الطلب', 'التاريخ', 'اسم العميل', 'الهاتف', 'البريد الإلكتروني',
-      'المنتجات', 'الإجمالي', 'العربون', 'الباقي عند الاستلام', 'الحالة'
+      'المنتجات', 'الإجمالي', 'طريقة الدفع', 'طريقة التحويل', 'العربون', 'الباقي عند الاستلام', 'الحالة'
     ]];
     orders.forEach(function (order) {
       var created = order.createdAt && order.createdAt.toDate
@@ -488,6 +514,8 @@
         order.email,
         items,
         order.total,
+        order.paymentMethod === 'cash_on_delivery' ? 'الدفع عند الاستلام' : 'دفع عربون',
+        order.paymentChannel || order.paymentMethod || '',
         order.depositAmount || 0,
         Math.max(0, (order.total || 0) - (order.depositAmount || 0)),
         statusNames[order.status || 'new'] || statusNames.new
@@ -746,7 +774,10 @@
   });
   document.addEventListener('change', async function (event) {
     var target = event.target;
-    if (target.id === 'nf-image') {
+    if (target.id === 'paymentMethod') {
+      checkoutPaymentMethod = target.value;
+      renderPaymentDetails();
+    } else if (target.id === 'nf-image') {
       $('nf-image-name').textContent = target.files[0] ? target.files[0].name : 'اختياري — JPG أو PNG أو WEBP حتى 5 ميجابايت';
     } else if (target.id === 'orderStatusFilter') {
       orderStatusFilter = target.value;
@@ -908,14 +939,24 @@
       toast('البريد الإلكتروني غير صحيح');
       return;
     }
-    var proofFile = $('paymentProof').files[0];
-    if (!proofFile) {
-      toast('أرفق صورة إيصال التحويل');
+    var paymentMethod = $('paymentMethod').value;
+    if (paymentMethod !== 'deposit' && paymentMethod !== 'cash_on_delivery') {
+      toast('اختر طريقة دفع صحيحة');
       return;
     }
-    if (!/^image\/(jpeg|png|webp)$/.test(proofFile.type) || proofFile.size > 5 * 1024 * 1024) {
-      toast('اختر صورة JPG أو PNG أو WEBP لا تتجاوز 5 ميجابايت');
-      return;
+    var paymentChannel = '';
+    var proofFile = null;
+    if (paymentMethod === 'deposit') {
+      paymentChannel = $('paymentChannel').value;
+      proofFile = $('paymentProof').files[0];
+      if (!proofFile) {
+        toast('أرفق صورة إيصال التحويل');
+        return;
+      }
+      if (!/^image\/(jpeg|png|webp)$/.test(proofFile.type) || proofFile.size > 5 * 1024 * 1024) {
+        toast('اختر صورة JPG أو PNG أو WEBP لا تتجاوز 5 ميجابايت');
+        return;
+      }
     }
     if (!firebaseReady) {
       toast('إرسال الطلب غير متاح حاليًا');
@@ -926,9 +967,10 @@
       return { materialId: item.id, name: item.name, quantity: cart[id], price: item.price };
     });
     var total = cartTotal().total;
-    var depositAmount = Math.ceil(total * paymentSettings.depositPercent / 100);
+    var isDeposit = paymentMethod === 'deposit';
+    var depositAmount = isDeposit ? Math.ceil(total * paymentSettings.depositPercent / 100) : 0;
     try {
-      var paymentProofData = await compressImage(proofFile);
+      var paymentProofData = isDeposit ? await compressImage(proofFile) : '';
       var orderRef = firebaseDb.collection('orders').doc();
       await orderRef.set({
         customerName: name,
@@ -937,8 +979,9 @@
         items: items,
         total: total,
         depositAmount: depositAmount,
-        paymentMethod: $('paymentMethod').value,
-        paymentStatus: 'submitted',
+        paymentMethod: paymentMethod,
+        paymentChannel: paymentChannel,
+        paymentStatus: isDeposit ? 'submitted' : 'cash_on_delivery',
         paymentProofData: paymentProofData,
         status: 'new',
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -947,10 +990,11 @@
       closeSheet();
       renderCartbar();
       renderGrid();
-      toast('تم إرسال الطلب وإيصال العربون بنجاح');
+      checkoutPaymentMethod = 'deposit';
+      toast(isDeposit ? 'تم إرسال الطلب وإيصال العربون بنجاح' : 'تم إرسال الطلب بنجاح، والدفع عند الاستلام');
     } catch (error) {
-      console.error('Failed to submit order with payment proof', error);
-      toast('تعذر إرسال الطلب أو رفع الإيصال');
+      console.error('Failed to submit order', error);
+      toast('تعذر إرسال الطلب');
     }
   });
   $('logoutBtn').addEventListener('click', function () {
